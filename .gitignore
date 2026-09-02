@@ -1,0 +1,28 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Runtime Data & Storage
+chroma_db/
+artifacts/*.docx
+artifacts/*.xlsx
+!artifacts/.gitkeep
+
+# Frontend Build & Dependencies
+dist/
+node_modules/
+
+# Secrets & Environment Variables
+.env
+*.log
+
+# OS Metadata
+.DS_Store
+Thumbs.db

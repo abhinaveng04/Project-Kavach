@@ -1,0 +1,30 @@
+{
+  "brain-qwen25-7b": {
+    "engine": "llama-server",
+    "port": 8080,
+    "quant": "Q4_K_M",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "health_endpoint": "http://127.0.0.1:8080/health"
+  },
+  "vision-qwen25-vl-3b": {
+    "engine": "llama-server",
+    "port": 8081,
+    "quant": "Q4",
+    "sha256": "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01",
+    "health_endpoint": "http://127.0.0.1:8081/health"
+  },
+  "coder-qwen25-3b": {
+    "engine": "llama-server",
+    "port": 8082,
+    "quant": "Q4",
+    "sha256": "23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01",
+    "health_endpoint": "http://127.0.0.1:8082/health"
+  },
+  "embed-nomic-v15": {
+    "engine": "llama-server",
+    "port": 8083,
+    "quant": "f16",
+    "sha256": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012",
+    "health_endpoint": "http://127.0.0.1:8083/health"
+  }
+}
