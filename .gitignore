@@ -11,6 +11,8 @@ __pycache__/
 
 # Runtime Data & Storage
 chroma_db/
+models/**/*.gguf
+models/*.gguf
 artifacts/*.docx
 artifacts/*.xlsx
 !artifacts/.gitkeep

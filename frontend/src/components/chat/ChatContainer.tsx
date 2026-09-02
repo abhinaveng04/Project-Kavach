@@ -1,0 +1,95 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowDown } from 'lucide-react';
+import { ChatMessage } from '../../types/workbench';
+import { ArtifactResponse, CitationItem } from '../../types/api';
+import { UserMessageCard } from './UserMessageCard';
+import { AssistantMessageCard } from './AssistantMessageCard';
+
+interface ChatContainerProps {
+  messages: ChatMessage[];
+  onInspectCitation: (citation: CitationItem) => void;
+  onSelectArtifact: (artifact: ArtifactResponse) => void;
+  onApproveAction: (actionId: string) => Promise<void>;
+  onRejectAction: (actionId: string, reason?: string) => Promise<void>;
+}
+
+export const ChatContainer: React.FC<ChatContainerProps> = ({
+  messages,
+  onInspectCitation,
+  onSelectArtifact,
+  onApproveAction,
+  onRejectAction,
+}) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+    setShowScrollBottom(false);
+    setAutoScroll(true);
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const isBottom = scrollHeight - scrollTop - clientHeight < 60;
+    setShowScrollBottom(!isBottom);
+    setAutoScroll(isBottom);
+  };
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, autoScroll]);
+
+  return (
+    <div className="relative flex-1 flex flex-col min-h-0 bg-[#212121] overflow-hidden">
+      {/* Scrollable Messages Stream */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-2"
+      >
+        <div className="max-w-3xl mx-auto space-y-2">
+          {messages.map((msg) =>
+            msg.role === 'user' ? (
+              <UserMessageCard
+                key={msg.id}
+                content={msg.content}
+                timestamp={msg.timestamp}
+                attachments={msg.attachments}
+              />
+            ) : (
+              <AssistantMessageCard
+                key={msg.id}
+                message={msg}
+                onInspectCitation={onInspectCitation}
+                onSelectArtifact={onSelectArtifact}
+                onApproveAction={onApproveAction}
+                onRejectAction={onRejectAction}
+              />
+            )
+          )}
+        </div>
+      </div>
+
+      {/* Floating Jump to Latest Button */}
+      {showScrollBottom && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-6 right-8 p-2.5 rounded-full bg-[#2f2f2f] border border-white/[0.12] text-zinc-300 hover:text-white hover:bg-[#383838] shadow-2xl transition-all flex items-center justify-center animate-scale-in"
+          title="Jump to latest"
+        >
+          <ArrowDown className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+};

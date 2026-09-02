@@ -76,6 +76,38 @@ def init_sqlite() -> sqlite3.Connection:
     conn.commit()
     return conn
 
+
+def init_pid_db():
+    """Dev_guide §2.4: Initialize SQLite database for PID tag bounding boxes."""
+    import os
+    conn = sqlite3.connect(os.path.abspath(SQLITE_DB_PATH))
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pid_tags (
+            tag_id TEXT PRIMARY KEY,
+            doc_name TEXT,
+            page_num INTEGER,
+            bbox TEXT,
+            component_type TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def store_tag(tag_id: str, doc_name: str, page_num: int, bbox: list, component: str):
+    """Dev_guide §2.4: Store PID equipment tag in SQLite."""
+    import os
+    conn = sqlite3.connect(os.path.abspath(SQLITE_DB_PATH))
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR REPLACE INTO pid_tags (tag_id, doc_name, page_num, bbox, component_type)
+        VALUES (?, ?, ?, ?, ?)
+    """, (tag_id, doc_name, page_num, str(bbox), component))
+    conn.commit()
+    conn.close()
+
 # ---------------------------------------------------------------------------
 # Chunking & Embeddings
 # ---------------------------------------------------------------------------
@@ -146,6 +178,96 @@ def store_in_chroma(chunks: list[str], doc_name: str, page_num: int):
         documents=documents
     )
     log.info("[CHROMA] Stored %d chunks for %s page %d", len(chunks), doc_name, page_num)
+
+
+def ingest_to_chroma(doc_name: str, page_num: int, text: str):
+    """Dev_guide §2.3: Ingest text into ChromaDB vector store."""
+    import os
+    chunks = chunk_text(text)
+    client = chromadb.PersistentClient(path=os.path.abspath(CHROMA_DB_PATH))
+    collection = client.get_or_create_collection(
+        name="sop_records",
+        metadata={"hnsw:space": "cosine"}
+    )
+    for idx, chunk in enumerate(chunks):
+        chunk_id = f"{doc_name}_p{page_num}_c{idx}"
+        collection.upsert(
+            documents=[chunk],
+            metadatas=[{
+                "doc_name": doc_name,
+                "page": page_num,
+                "citation": f"[SOP-REF §{page_num}.1 p.{page_num}]"
+            }],
+            ids=[chunk_id]
+        )
+
+
+def rag_search(query: str, n_results: int = 3) -> str:
+    """Dev_guide §2.5: Query ChromaDB vector store for SOP citations and excerpts."""
+    import os
+    client = chromadb.PersistentClient(path=os.path.abspath(CHROMA_DB_PATH))
+    collection = client.get_or_create_collection(
+        name="sop_records",
+        metadata={"hnsw:space": "cosine"}
+    )
+    results = collection.query(query_texts=[query], n_results=n_results)
+    if not results or not results.get("documents") or not results["documents"][0]:
+        return "No relevant SOP or inspection records found in local database."
+
+    formatted_outputs = []
+    for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
+        cit = meta.get("citation", "[SOP-REF §1.0 p.1]")
+        formatted_outputs.append(f"Source: {cit}\nExcerpt: {doc}\n")
+    return "\n---\n".join(formatted_outputs)
+
+
+def extract_tables_and_text(pdf_path: str) -> list[dict]:
+    """Dev_guide §2.1: Extract tables as Markdown and narrative text per page."""
+    extracted_pages = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page_idx, page in enumerate(pdf.pages, start=1):
+            page_text_blocks = []
+            
+            tables = page.extract_tables()
+            for table in tables:
+                if not table or not any(table):
+                    continue
+                cleaned_table = [[str(cell or '').strip() for cell in row] for row in table if any(row)]
+                if len(cleaned_table) >= 2:
+                    headers = cleaned_table[0]
+                    col_divider = ["---"] * len(headers)
+                    md_rows = [f"| {' | '.join(headers)} |", f"| {' | '.join(col_divider)} |"]
+                    for row in cleaned_table[1:]:
+                        md_rows.append(f"| {' | '.join(row)} |")
+                    page_text_blocks.append("\n" + "\n".join(md_rows) + "\n")
+
+            text = page.extract_text() or ""
+            if text.strip():
+                page_text_blocks.append(text.strip())
+
+            combined_page_text = "\n\n".join(page_text_blocks)
+            extracted_pages.append({
+                "page_number": page_idx,
+                "text": combined_page_text,
+                "raw_page": page
+            })
+    return extracted_pages
+
+
+def route_page_content(doc_id: str, page_data: dict) -> dict:
+    """Dev_guide §2.2: Route blank or scanned pages to Vision OCR and valid text to chunking."""
+    text = page_data["text"]
+    if is_gibberish_or_blank(text):
+        return {
+            "type": "VISION_QUEUE",
+            "page": page_data["page_number"],
+            "reason": "Text density gate triggered: scan or corrupted text."
+        }
+    return {
+        "type": "TEXT_CHUNKING",
+        "page": page_data["page_number"],
+        "text": text
+    }
 
 # ---------------------------------------------------------------------------
 # Multimodal Extraction (Tables & Vision OCR)

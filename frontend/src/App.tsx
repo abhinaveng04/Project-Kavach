@@ -1,0 +1,454 @@
+import React, { useEffect, useState } from 'react';
+import { AppLayout } from './components/layout/AppLayout';
+import { StartupSequence } from './components/common/StartupSequence';
+import { api } from './api/client';
+import { sseClient } from './api/sse';
+import {
+  ArtifactResponse,
+  CitationItem,
+  FileUploadResponse,
+  HardwareProfileStatus,
+  SessionResponse,
+  SystemStatusResponse,
+} from './types/api';
+import { AgentEvent, AgentEventType } from './types/events';
+import { ChatMessage, ExecutionTimelineStep, ToolRunInfo } from './types/workbench';
+
+export function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [systemStatus, setSystemStatus] = useState<SystemStatusResponse | null>(null);
+  const [hardwareStatus, setHardwareStatus] = useState<HardwareProfileStatus | null>(null);
+  const [sessions, setSessions] = useState<SessionResponse[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [artifactsList, setArtifactsList] = useState<ArtifactResponse[]>([]);
+  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactResponse | null>(null);
+  const [inspectedCitation, setInspectedCitation] = useState<CitationItem | null>(null);
+  const [isTestingEgress, setIsTestingEgress] = useState(false);
+  const [egressPassed, setEgressPassed] = useState<boolean | null>(null);
+
+  // 1. Initial boot data fetch
+  useEffect(() => {
+    const initSystem = async () => {
+      try {
+        const [sys, hw, sessList, artList] = await Promise.all([
+          api.getSystemStatus().catch(() => null),
+          api.getHardwareProfile().catch(() => null),
+          api.listSessions().catch(() => []),
+          api.listArtifacts().catch(() => []),
+        ]);
+
+        if (sys) setSystemStatus(sys);
+        if (hw) setHardwareStatus(hw);
+        setArtifactsList(artList);
+
+        if (sessList && sessList.length > 0) {
+          setSessions(sessList);
+          setActiveSessionId(sessList[0].session_id);
+        } else {
+          // Create initial session
+          const newSess = await api.createSession('General Engineering Task');
+          setSessions([newSess]);
+          setActiveSessionId(newSess.session_id);
+        }
+      } catch (err) {
+        console.error('Initial boot error:', err);
+      }
+    };
+    initSystem();
+  }, []);
+
+  // 2. Connect SSE stream whenever active session changes
+  useEffect(() => {
+    if (!activeSessionId) return;
+
+    sseClient.connect(activeSessionId);
+
+    const unsubscribe = sseClient.subscribe((event: AgentEvent) => {
+      handleIncomingSSEEvent(event);
+    });
+
+    // Load message history for session
+    api.getSessionMessages(activeSessionId)
+      .then((res) => {
+        if (res && res.messages) {
+          const mapped: ChatMessage[] = res.messages.map((m, idx) => ({
+            id: `msg-${activeSessionId}-${idx}`,
+            role: m.role as any,
+            content: m.content,
+            timestamp: new Date().toISOString(),
+          }));
+          setMessages(mapped);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeSessionId]);
+
+  // 3. SSE event dispatcher mapping backend states to rich UI elements
+  const handleIncomingSSEEvent = (event: AgentEvent) => {
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (last.role !== 'assistant') return prev;
+
+      const updated: ChatMessage = { ...last };
+      const currentTimeline = [...(updated.timeline || [])];
+      const currentTools = [...(updated.tools || [])];
+      const currentObservations = [...(updated.observations || [])];
+
+      switch (event.event_type) {
+        case AgentEventType.ROUTE_DECISION:
+          updated.taskType = event.data?.task_type || 'conversation';
+          currentTimeline.push({
+            id: `step-${Date.now()}`,
+            name: 'ROUTE',
+            label: 'Task Routing',
+            status: 'completed',
+            detail: event.message || `Routed to ${updated.taskType}`,
+          });
+          break;
+
+        case AgentEventType.AGENT_STEP:
+          if (event.step_name === 'CEO') {
+            updated.reasoningSummary = event.message || 'Authoritative plan synthesized by CEO model';
+            currentTimeline.push({
+              id: `step-${Date.now()}`,
+              name: 'PLAN',
+              label: 'CEO Execution Plan',
+              status: 'completed',
+              detail: event.message || 'Plan created',
+            });
+          }
+          break;
+
+        case AgentEventType.TOOL_CALL:
+          const toolName = event.data?.tool_name || event.step_name || 'tool';
+          const toolCat =
+            toolName.includes('vision') ? 'vision'
+            : toolName.includes('rag') ? 'rag'
+            : toolName.includes('sandbox') || toolName.includes('python') ? 'coder'
+            : 'document';
+
+          currentTools.push({
+            id: `tool-${Date.now()}`,
+            toolName: toolName,
+            category: toolCat as any,
+            status: 'running',
+            inputs: event.data,
+          });
+
+          currentTimeline.push({
+            id: `step-tool-${Date.now()}`,
+            name: 'TOOL',
+            label: `Executing ${toolName}`,
+            status: 'running',
+            detail: `Executing ${toolName}...`,
+          });
+          break;
+
+        case AgentEventType.TOOL_RESULT:
+          let runningIdx = -1;
+          for (let i = currentTools.length - 1; i >= 0; i--) {
+            if (currentTools[i].status === 'running') {
+              runningIdx = i;
+              break;
+            }
+          }
+          if (runningIdx !== -1) {
+            currentTools[runningIdx].status = event.data?.status === 'success' ? 'success' : 'error';
+            currentTools[runningIdx].output = event.data?.output;
+            currentTools[runningIdx].durationMs = event.data?.execution_time_ms;
+          }
+
+          if (event.data?.output) {
+            const obsStr =
+              typeof event.data.output === 'string'
+                ? event.data.output
+                : JSON.stringify(event.data.output, null, 2);
+            currentObservations.push(obsStr);
+          }
+
+          currentTimeline.push({
+            id: `step-obs-${Date.now()}`,
+            name: 'OBSERVE',
+            label: 'Tool Observation',
+            status: 'completed',
+            detail: event.message || 'Observation captured',
+          });
+          break;
+
+        case AgentEventType.VERIFICATION:
+          updated.verificationPassed = event.data?.passed ?? true;
+          currentTimeline.push({
+            id: `step-ver-${Date.now()}`,
+            name: 'REFLECT',
+            label: 'Deterministic Verification',
+            status: updated.verificationPassed ? 'completed' : 'failed',
+            detail: event.message || (updated.verificationPassed ? 'PASS' : 'FAILED'),
+          });
+          break;
+
+        case AgentEventType.HITL_REQUEST:
+          updated.pendingApprovals = [
+            ...(updated.pendingApprovals || []),
+            {
+              action_id: event.data?.action_id || 'act-1',
+              type: 'create_artifact',
+              description: event.data?.description || event.message || 'Approval requested',
+            },
+          ];
+          currentTimeline.push({
+            id: `step-hitl-${Date.now()}`,
+            name: 'HITL',
+            label: 'Engineer Approval',
+            status: 'approval_required',
+            detail: 'Awaiting engineer review',
+          });
+          break;
+
+        case AgentEventType.ARTIFACT_CREATED:
+          if (event.data) {
+            const newArt: ArtifactResponse = {
+              artifact_id: event.data.artifact_id || 'art-1',
+              filename: event.data.filename || 'deliverable.docx',
+              file_type: event.data.file_type || 'docx',
+              file_size_bytes: event.data.file_size_bytes || 1024,
+              sha256: event.data.sha256 || '',
+              created_at: new Date().toISOString(),
+              approved: true,
+              requires_approval: false,
+              download_url: `/artifacts/${event.data.artifact_id || event.data.sha256?.slice(0, 8)}/download`,
+            };
+            updated.artifacts = [...(updated.artifacts || []), newArt];
+            setArtifactsList((prevArts) => [newArt, ...prevArts.filter((a) => a.artifact_id !== newArt.artifact_id)]);
+            setSelectedArtifact(newArt);
+          }
+          break;
+
+        case AgentEventType.FINAL_RESPONSE:
+          updated.content = event.data?.final_response || event.message || updated.content;
+          updated.isStreaming = false;
+          currentTimeline.push({
+            id: `step-fin-${Date.now()}`,
+            name: 'FINALIZE',
+            label: 'Synthesis Complete',
+            status: 'completed',
+            detail: 'Verified response ready',
+          });
+          break;
+      }
+
+      updated.timeline = currentTimeline;
+      updated.tools = currentTools;
+      updated.observations = currentObservations;
+
+      return [...prev.slice(0, -1), updated];
+    });
+  };
+
+  // 4. Send Message Handler
+  const handleSendMessage = async (userText: string, attachedFiles: string[]) => {
+    if (!userText.trim() || isExecuting) return;
+
+    const userMessageId = `user-${Date.now()}`;
+    const assistantMessageId = `asst-${Date.now()}`;
+
+    const userMsg: ChatMessage = {
+      id: userMessageId,
+      role: 'user',
+      content: userText,
+      timestamp: new Date().toISOString(),
+      attachments: attachedFiles,
+    };
+
+    const initialAsstMsg: ChatMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toISOString(),
+      isStreaming: true,
+      reasoningSummary: 'Understanding engineering intent...',
+      timeline: [
+        {
+          id: 'step-und-1',
+          name: 'UNDERSTAND',
+          label: 'Task Understanding',
+          status: 'running',
+          detail: 'Analyzing request constraints and evidence requirements...',
+        },
+      ],
+      tools: [],
+      observations: [],
+      citations: [],
+      artifacts: [],
+    };
+
+    setMessages((prev) => [...prev, userMsg, initialAsstMsg]);
+    setIsExecuting(true);
+
+    try {
+      const resp = await api.sendChat({
+        session_id: activeSessionId || undefined,
+        message: userText,
+        attachments: attachedFiles,
+      });
+
+      // Update assistant message with final verified backend payload
+      setMessages((prev) => {
+        const lastIdx = prev.findIndex((m) => m.id === assistantMessageId);
+        if (lastIdx === -1) return prev;
+
+        const updated: ChatMessage = {
+          ...prev[lastIdx],
+          content: resp.final_response,
+          taskType: resp.task_type,
+          citations: resp.citations,
+          artifacts: resp.artifacts,
+          pendingApprovals: resp.pending_approvals,
+          verificationPassed: resp.verification_passed,
+          executionTimeMs: resp.execution_time_ms,
+          isStreaming: false,
+        };
+
+        return [...prev.slice(0, lastIdx), updated];
+      });
+
+      if (resp.artifacts && resp.artifacts.length > 0) {
+        setSelectedArtifact(resp.artifacts[0]);
+        setArtifactsList((prevArts) => [...resp.artifacts, ...prevArts]);
+      }
+    } catch (err: any) {
+      setMessages((prev) => {
+        const lastIdx = prev.findIndex((m) => m.id === assistantMessageId);
+        if (lastIdx === -1) return prev;
+        return [
+          ...prev.slice(0, lastIdx),
+          {
+            ...prev[lastIdx],
+            content: `Unable to complete analysis. Backend Reason: ${err.message || 'Inference failure'}`,
+            isStreaming: false,
+            verificationPassed: false,
+          },
+        ];
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  // 5. Session Actions
+  const handleNewSession = async () => {
+    try {
+      const sess = await api.createSession();
+      setSessions((prev) => [sess, ...prev]);
+      setActiveSessionId(sess.session_id);
+      setMessages([]);
+      setSelectedArtifact(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSelectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setSelectedArtifact(null);
+  };
+
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.deleteSession(sessionId);
+      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
+      if (activeSessionId === sessionId) {
+        const remaining = sessions.filter((s) => s.session_id !== sessionId);
+        if (remaining.length > 0) {
+          setActiveSessionId(remaining[0].session_id);
+        } else {
+          handleNewSession();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // 6. HITL Approval Actions
+  const handleApproveAction = async (actionId: string) => {
+    if (!selectedArtifact) return;
+    try {
+      await api.approveArtifact(selectedArtifact.artifact_id, actionId, true);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRejectAction = async (actionId: string, reason?: string) => {
+    if (!selectedArtifact) return;
+    try {
+      await api.approveArtifact(selectedArtifact.artifact_id, actionId, false, reason);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // 7. Test Egress Action
+  const handleRunTestEgress = async () => {
+    setIsTestingEgress(true);
+    setEgressPassed(null);
+    try {
+      const res = await api.runTestEgress();
+      setEgressPassed(res.sovereignty_intact);
+    } catch (err) {
+      console.error(err);
+      setEgressPassed(false);
+    } finally {
+      setIsTestingEgress(false);
+    }
+  };
+
+  // 8. Document Ingested Callback
+  const handleFileUploaded = (res: FileUploadResponse) => {
+    // File uploaded and indexed
+  };
+
+  return (
+    <>
+      {isInitializing ? (
+        <StartupSequence status={systemStatus} onComplete={() => setIsInitializing(false)} />
+      ) : (
+        <AppLayout
+          systemStatus={systemStatus}
+          hardwareStatus={hardwareStatus}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          messages={messages}
+          isExecuting={isExecuting}
+          artifactsList={artifactsList}
+          selectedArtifact={selectedArtifact}
+          inspectedCitation={inspectedCitation}
+          onSendMessage={handleSendMessage}
+          onNewSession={handleNewSession}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          onSelectArtifact={(art) => setSelectedArtifact(art)}
+          onCloseArtifact={() => setSelectedArtifact(null)}
+          onInspectCitation={(cite) => setInspectedCitation(cite)}
+          onCloseCitation={() => setInspectedCitation(null)}
+          onApproveAction={handleApproveAction}
+          onRejectAction={handleRejectAction}
+          onRunTestEgress={handleRunTestEgress}
+          isTestingEgress={isTestingEgress}
+          egressPassed={egressPassed}
+          onFileUploaded={handleFileUploaded}
+        />
+      )}
+    </>
+  );
+}
+
+export default App;

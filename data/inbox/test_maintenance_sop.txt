@@ -1,0 +1,5 @@
+Section 4.1: Emergency Shutdown Valves
+All emergency shutdown valves must be inspected every 6 months for wear and seal degradation.
+
+Section 4.2: Ultrasonic Thickness Testing
+Perform UT testing on pipe elbows according to ASTM standards.

@@ -1,0 +1,307 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #212121;
+    color: #ececec;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Code font */
+  pre, code, kbd, samp {
+    font-family: ui-monospace, SFMono-Regular, "SF Pro Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* Custom minimalist dark scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+}
+
+/* 1. Message Bubble Elastic Spring Animation */
+@keyframes messageSpringUp {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.94);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-spring {
+  animation: messageSpringUp 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25) forwards;
+}
+
+/* 2. 4-Point Star Icon Drop-In Animation */
+@keyframes starDropIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.5) rotate(-15deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.1) rotate(4deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+.animate-star-drop {
+  animation: starDropIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25) forwards;
+}
+
+/* 3. Horizontal Multi-Color Shimmer Wave (Blue, Violet, Coral) */
+@keyframes shimmerWavePulse {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-wave-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(74, 158, 255, 0.04) 0%,
+    rgba(74, 158, 255, 0.35) 25%,
+    rgba(157, 114, 255, 0.6) 50%,
+    rgba(244, 63, 94, 0.45) 75%,
+    rgba(74, 158, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerWavePulse 2s linear infinite;
+}
+
+.shimmer-wave-text {
+  background: linear-gradient(
+    90deg,
+    #4a9eff 0%,
+    #9d72ff 35%,
+    #f43f5e 65%,
+    #4a9eff 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerWavePulse 2.4s linear infinite;
+}
+
+/* 4. Suggestion Collapse (Fade out & slide upward off-screen) */
+@keyframes collapseSlideUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px);
+    pointer-events: none;
+  }
+}
+
+.animate-collapse-up {
+  animation: collapseSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 5. Typing Cursor Animation */
+@keyframes cursorBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.1;
+  }
+}
+
+.animate-typing-cursor {
+  animation: cursorBlink 0.8s ease-in-out infinite;
+}
+
+/* Neural Expressive Gradient Text */
+.neural-gradient-text {
+  background: linear-gradient(90deg, #4a9eff, #9d72ff, #f43f5e, #4a9eff);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: neuralWave 4s ease infinite;
+}
+
+/* Glowing Ambient Aura */
+.ambient-glow-ring {
+  box-shadow: 0 0 25px -3px rgba(157, 114, 255, 0.25), 0 0 10px -2px rgba(74, 158, 255, 0.2);
+}
+
+/* Floating Capsule Shadow */
+.capsule-shadow {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+}
+
+/* Expandable Thought Container */
+.thought-stream-border {
+  border-left: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+/* Markdown typography */
+.prose-chat p {
+  margin-bottom: 0.9rem;
+  line-height: 1.7;
+}
+.prose-chat p:last-child {
+  margin-bottom: 0;
+}
+.prose-chat ul, .prose-chat ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+.prose-chat li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.65;
+}
+
+/* ==========================================================================
+   THEME DEFINITIONS: LIGHT, NAVY, SCADA TERMINAL, DENSITY
+   ========================================================================== */
+
+/* 1. ENGINEERING LIGHT THEME */
+html[data-theme="light"] body {
+  background-color: #f4f6f9 !important;
+  color: #1e293b !important;
+}
+
+html[data-theme="light"] .bg-\[\#171717\],
+html[data-theme="light"] .bg-\[\#212121\],
+html[data-theme="light"] .bg-\[\#18181b\] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .bg-\[\#2f2f2f\],
+html[data-theme="light"] .bg-\[\#27272a\],
+html[data-theme="light"] .bg-\[\#212124\],
+html[data-theme="light"] .bg-\[\#1c1c1f\],
+html[data-theme="light"] .bg-\[\#252528\] {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .border-white\/\[0\.08\],
+html[data-theme="light"] .border-white\/\[0\.06\],
+html[data-theme="light"] .border-white\/\[0\.1\],
+html[data-theme="light"] .border-white\/\[0\.12\] {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+html[data-theme="light"] .text-white {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .text-zinc-400,
+html[data-theme="light"] .text-zinc-500 {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] .text-zinc-300,
+html[data-theme="light"] .text-zinc-200 {
+  color: #334155 !important;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 2. REFINERY NAVY THEME (MoPNG / Petrochemical Sovereign) */
+html[data-theme="navy"] body {
+  background-color: #070d1e !important;
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="navy"] .bg-\[\#171717\] {
+  background-color: #050914 !important;
+}
+
+html[data-theme="navy"] .bg-\[\#212121\],
+html[data-theme="navy"] .bg-\[\#18181b\] {
+  background-color: #0b1428 !important;
+}
+
+html[data-theme="navy"] .bg-\[\#2f2f2f\],
+html[data-theme="navy"] .bg-\[\#27272a\],
+html[data-theme="navy"] .bg-\[\#212124\],
+html[data-theme="navy"] .bg-\[\#1c1c1f\] {
+  background-color: #101c3b !important;
+}
+
+html[data-theme="navy"] .border-white\/\[0\.08\],
+html[data-theme="navy"] .border-white\/\[0\.06\],
+html[data-theme="navy"] .border-white\/\[0\.1\] {
+  border-color: rgba(56, 189, 248, 0.15) !important;
+}
+
+/* 3. SCADA TERMINAL THEME (Tactical Emerald / Amber) */
+html[data-theme="terminal"] body {
+  background-color: #050608 !important;
+  color: #34d399 !important;
+}
+
+html[data-theme="terminal"] .bg-\[\#171717\] {
+  background-color: #020304 !important;
+}
+
+html[data-theme="terminal"] .bg-\[\#212121\],
+html[data-theme="terminal"] .bg-\[\#18181b\] {
+  background-color: #080c0a !important;
+}
+
+html[data-theme="terminal"] .bg-\[\#2f2f2f\],
+html[data-theme="terminal"] .bg-\[\#27272a\],
+html[data-theme="terminal"] .bg-\[\#212124\],
+html[data-theme="terminal"] .bg-\[\#1c1c1f\] {
+  background-color: #0e1511 !important;
+}
+
+html[data-theme="terminal"] .border-white\/\[0\.08\],
+html[data-theme="terminal"] .border-white\/\[0\.06\],
+html[data-theme="terminal"] .border-white\/\[0\.1\] {
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+html[data-theme="terminal"] .text-white {
+  color: #10b981 !important;
+}
+
+/* UI DENSITY MODES */
+html[data-density="compact"] {
+  font-size: 13px;
+}
+html[data-density="spacious"] {
+  font-size: 15px;
+}

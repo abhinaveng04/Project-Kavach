@@ -1,0 +1,13 @@
+--- Inspection Report: Pipeline Section 8B ---
+Document: corrosion_report.pdf
+
+Table 1: Operating Conditions
+Operating Temperature: 85 C | Pressure: 14.2 bar | Medium: Hydrocarbon mix
+
+Table 3: Ultrasonic Wall Thickness Measurements
+Location: Elbow E-104
+Nominal Original Wall Thickness: 12.5 mm
+Current Measured Thickness: 10.2 mm
+Service Duration: 5.0 years
+Calculated Corrosion Rate: 0.460 mm/year
+Estimated Remaining Life: 11.3 years at current operational degradation rate.
