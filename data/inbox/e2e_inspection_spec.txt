@@ -1,3 +1,0 @@
-Section 7.3: Pipeline Integrity Standards
-All offshore subsea pipelines must undergo magnetic flux leakage testing every 24 months.
-Table 7B: Allowable Wall Loss Tolerance: Max 15% before replacement.
