@@ -127,8 +127,8 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* Center Session Title */}
-      <div className="hidden md:flex items-center gap-2 max-w-sm truncate text-xs text-zinc-400 font-mono">
-        <span className="truncate">{sessionTitle || 'New Session'}</span>
+      <div className="hidden md:flex items-center gap-2 max-w-sm truncate text-xs text-zinc-300 font-medium">
+        <span className="truncate">{sessionTitle || 'New Task'}</span>
       </div>
 
       {/* Right Controls */}

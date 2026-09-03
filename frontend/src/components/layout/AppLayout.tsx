@@ -109,7 +109,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const allCitations = messages.flatMap((m) => m.citations || []);
 
   const currentSession = sessions.find((s) => s.session_id === activeSessionId);
-  const sessionTitle = currentSession ? `Task_${currentSession.session_id.slice(0, 6)}` : 'New Engineering Session';
+  const sessionTitle = currentSession ? (currentSession.title || `Task_${currentSession.session_id.slice(0, 6)}`) : 'New Task';
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#212121] text-[#ececec] overflow-hidden font-sans">
