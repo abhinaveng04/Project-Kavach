@@ -158,7 +158,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
           // Standard paragraph
           return (
-            <p key={pIdx} className="text-[15px] text-[#ececec] leading-relaxed">
+            <p key={pIdx} className="text-[15px] chat-prose-text leading-relaxed">
               {renderInlineFormatted(trimmed)}
             </p>
           );

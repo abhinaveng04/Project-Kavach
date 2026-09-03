@@ -86,7 +86,7 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
         )}
 
         {/* 5. Natural Markdown Prose Stream & Typing Effect */}
-        <div className="text-[15px] text-[#ececec] leading-[1.75] font-sans prose-chat">
+        <div className="text-[15px] chat-prose-text leading-[1.75] font-sans prose-chat">
           {message.content ? (
             <div>
               <MarkdownRenderer

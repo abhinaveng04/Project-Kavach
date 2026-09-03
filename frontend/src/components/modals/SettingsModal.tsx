@@ -14,8 +14,15 @@ import {
   Monitor,
   CheckCircle2,
   AlertCircle,
+  Paintbrush,
 } from 'lucide-react';
-import { useTheme, ThemeType, DensityType } from '../../context/ThemeContext';
+import {
+  useTheme,
+  ThemeType,
+  AccentColorType,
+  DensityType,
+  ACCENT_PALETTE,
+} from '../../context/ThemeContext';
 import { cn } from '../../utils/cn';
 
 interface SettingsModalProps {
@@ -42,10 +49,11 @@ const THEME_OPTIONS: ThemeOption[] = [
   },
   {
     id: 'light',
-    name: 'Engineering Light',
-    description: 'High-clarity paper blueprint for daylight operation',
+    name: 'Daylight Paper',
+    description: 'High-clarity technical document theme for daylight operation',
     accent: '#2563eb',
     bgPreview: 'bg-[#ffffff] border-[#cbd5e1]',
+    badge: 'Light Mode',
   },
   {
     id: 'navy',
@@ -62,6 +70,35 @@ const THEME_OPTIONS: ThemeOption[] = [
     accent: '#10b981',
     bgPreview: 'bg-[#050505] border-[#1f2937]',
   },
+  {
+    id: 'amber',
+    name: 'Sunset Amber',
+    description: 'Warm industrial copper, dark charcoal, and safety amber',
+    accent: '#f59e0b',
+    bgPreview: 'bg-[#120e0a] border-[#332415]',
+  },
+  {
+    id: 'crimson',
+    name: 'Crimson Protocol',
+    description: 'Critical plant defense & high-alert emergency command',
+    accent: '#f43f5e',
+    bgPreview: 'bg-[#13080b] border-[#38161e]',
+    badge: 'Defense',
+  },
+  {
+    id: 'nordic',
+    name: 'Nordic Slate',
+    description: 'Arctic glacier slate with cool icy-blue tones',
+    accent: '#38bdf8',
+    bgPreview: 'bg-[#0b1120] border-[#1e293b]',
+  },
+  {
+    id: 'forest',
+    name: 'Forest Moss',
+    description: 'Deep botanical pine, eucalyptus, and organic green',
+    accent: '#34d399',
+    bgPreview: 'bg-[#08120c] border-[#163321]',
+  },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
@@ -70,6 +107,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     setTheme,
     isDark,
     toggleDarkMode,
+    accentColor,
+    setAccentColor,
     density,
     setDensity,
     soundEnabled,
@@ -88,7 +127,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       if (res && (res.ok || res.status === 200)) {
         setPingStatus('success');
       } else {
-        // Fallback check root /
         const res2 = await fetch('/', { method: 'GET' });
         if (res2.ok) setPingStatus('success');
         else setPingStatus('error');
@@ -101,10 +139,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
   const handleResetDefaults = () => {
     setTheme('dark');
+    setAccentColor('purple');
     setDensity('normal');
     setSoundEnabled(true);
     setStrictAirGap(true);
   };
+
+  const currentAccent = ACCENT_PALETTE[accentColor] || ACCENT_PALETTE.purple;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in select-text">
@@ -112,12 +153,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         {/* Header */}
         <div className="h-14 bg-[#18181b] border-b border-white/[0.08] px-6 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <div
+              className="p-1.5 rounded-xl border"
+              style={{
+                backgroundColor: `${currentAccent.hex}15`,
+                color: currentAccent.hex,
+                borderColor: `${currentAccent.hex}30`,
+              }}
+            >
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Workbench Preferences</h3>
-              <p className="text-[11px] text-zinc-400">Themes, Appearance & Air-Gap Configuration</p>
+              <h3 className="text-sm font-semibold text-white">Settings</h3>
+              <p className="text-[11px] text-zinc-400">Themes, Accent Colors & System Preferences</p>
             </div>
           </div>
           <button
@@ -135,21 +183,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             className={cn(
               'flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-all',
               activeTab === 'appearance'
-                ? 'border-purple-400 text-white'
+                ? 'text-white'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             )}
+            style={{
+              borderColor: activeTab === 'appearance' ? currentAccent.hex : 'transparent',
+            }}
           >
             <Palette className="w-3.5 h-3.5" />
-            Theme & Appearance
+            Theme & Colors
           </button>
           <button
             onClick={() => setActiveTab('system')}
             className={cn(
               'flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-all',
               activeTab === 'system'
-                ? 'border-purple-400 text-white'
+                ? 'text-white'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             )}
+            style={{
+              borderColor: activeTab === 'system' ? currentAccent.hex : 'transparent',
+            }}
           >
             <HardDrive className="w-3.5 h-3.5" />
             System & Air-Gap
@@ -159,9 +213,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             className={cn(
               'flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-all',
               activeTab === 'audio'
-                ? 'border-purple-400 text-white'
+                ? 'text-white'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             )}
+            style={{
+              borderColor: activeTab === 'audio' ? currentAccent.hex : 'transparent',
+            }}
           >
             <Volume2 className="w-3.5 h-3.5" />
             Sound Cues
@@ -186,9 +243,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-white">Dark Mode Switch</h4>
+                    <h4 className="font-semibold text-white">Dark / Light Mode</h4>
                     <p className="text-[11px] text-zinc-400">
-                      Currently using {isDark ? 'Dark / High-Contrast mode' : 'Daylight / Light paper mode'}
+                      Currently active: {isDark ? 'Dark / High-Contrast Mode' : 'Daylight Paper / Light Mode'}
                     </p>
                   </div>
                 </div>
@@ -199,6 +256,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
                     isDark ? 'bg-purple-600' : 'bg-zinc-600'
                   )}
+                  style={{
+                    backgroundColor: isDark ? currentAccent.hex : '#52525b',
+                  }}
                   title="Toggle dark mode"
                 >
                   <span
@@ -210,14 +270,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 </button>
               </div>
 
+              {/* Accent Color Picker */}
+              <div className="space-y-3 p-4 rounded-2xl bg-[#27272a] border border-white/[0.06]">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-white flex items-center gap-1.5">
+                    <Paintbrush className="w-3.5 h-3.5 text-zinc-400" />
+                    Custom Accent Color
+                  </label>
+                  <span
+                    className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md"
+                    style={{
+                      backgroundColor: `${currentAccent.hex}20`,
+                      color: currentAccent.hex,
+                    }}
+                  >
+                    {currentAccent.name}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  Select your preferred primary highlight color across all buttons, indicators, and focus states:
+                </p>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  {(Object.keys(ACCENT_PALETTE) as AccentColorType[]).map((colKey) => {
+                    const col = ACCENT_PALETTE[colKey];
+                    const isSelected = accentColor === colKey;
+                    return (
+                      <button
+                        key={colKey}
+                        onClick={() => setAccentColor(colKey)}
+                        className={cn(
+                          'w-8 h-8 rounded-full flex items-center justify-center transition-all relative group',
+                          isSelected ? 'scale-110 shadow-lg ring-2 ring-white/40' : 'hover:scale-105 opacity-85 hover:opacity-100'
+                        )}
+                        style={{ backgroundColor: col.hex }}
+                        title={col.name}
+                      >
+                        {isSelected && <Check className="w-4 h-4 text-white stroke-[3] drop-shadow-md" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Theme Palette Cards */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="font-semibold text-white flex items-center gap-1.5">
                     <Palette className="w-3.5 h-3.5 text-zinc-400" />
-                    Color Palettes & Styling
+                    Theme Palettes
                   </label>
-                  <span className="text-[11px] text-zinc-500 font-mono">4 Themes Available</span>
+                  <span className="text-[11px] text-zinc-500 font-mono">8 Presets</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -230,9 +333,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                         className={cn(
                           'p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between group relative',
                           isSelected
-                            ? 'bg-[#2f2f33] border-purple-500 shadow-md ring-1 ring-purple-500/30'
+                            ? 'bg-[#2f2f33] shadow-md ring-1'
                             : 'bg-[#27272a] border-white/[0.06] hover:border-white/[0.15] hover:bg-[#2b2b2f]'
                         )}
+                        style={{
+                          borderColor: isSelected ? currentAccent.hex : undefined,
+                        }}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -255,7 +361,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                               </span>
                             )}
                             {isSelected && (
-                              <div className="w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center">
+                              <div
+                                className="w-4 h-4 rounded-full text-white flex items-center justify-center"
+                                style={{ backgroundColor: currentAccent.hex }}
+                              >
                                 <Check className="w-2.5 h-2.5 stroke-[3]" />
                               </div>
                             )}
@@ -286,9 +395,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                         className={cn(
                           'p-2.5 rounded-xl border text-center font-medium capitalize transition-all',
                           isSelected
-                            ? 'bg-purple-500/15 border-purple-500/50 text-white font-semibold'
+                            ? 'bg-white/[0.08] text-white font-semibold'
                             : 'bg-[#27272a] border-white/[0.06] text-zinc-400 hover:text-white hover:bg-[#2f2f33]'
                         )}
+                        style={{
+                          borderColor: isSelected ? currentAccent.hex : undefined,
+                        }}
                       >
                         {d}
                       </button>
@@ -355,7 +467,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   </div>
                   <div className="p-2.5 rounded-xl bg-[#1f1f22] border border-white/[0.04]">
                     <span className="text-zinc-500 block text-[10px]">LOADED GGUF</span>
-                    <span className="text-emerald-400 font-semibold">Qwen 2.5 1.5B Q4_K_M</span>
+                    <span className="text-emerald-400 font-semibold">Qwen 2.5 1.5B (8k ctx)</span>
                   </div>
                 </div>
               </div>
@@ -366,7 +478,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-[#27272a] border border-white/[0.06] flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <div
+                    className="p-2 rounded-xl border"
+                    style={{
+                      backgroundColor: `${currentAccent.hex}15`,
+                      color: currentAccent.hex,
+                      borderColor: `${currentAccent.hex}30`,
+                    }}
+                  >
                     <Volume2 className="w-4 h-4" />
                   </div>
                   <div>
@@ -383,6 +502,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
                     soundEnabled ? 'bg-purple-600' : 'bg-zinc-600'
                   )}
+                  style={{
+                    backgroundColor: soundEnabled ? currentAccent.hex : '#52525b',
+                  }}
                 >
                   <span
                     className={cn(
@@ -408,7 +530,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs shadow-md transition-all active:scale-[0.98]"
+            className="px-4 py-2 rounded-xl text-white font-medium text-xs shadow-md transition-all active:scale-[0.98]"
+            style={{ backgroundColor: currentAccent.hex }}
           >
             Apply & Close
           </button>

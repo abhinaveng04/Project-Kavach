@@ -104,7 +104,7 @@ export const Composer: React.FC<ComposerProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="p-4 bg-gradient-to-t from-[#212121] via-[#212121] to-transparent shrink-0 z-20"
+      className="p-4 composer-gradient shrink-0 z-20"
     >
       <div className="max-w-3xl mx-auto space-y-2">
         {/* Attachment chips */}
@@ -198,8 +198,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   className={cn(
                     'w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95',
                     canSubmit
-                      ? 'bg-white text-black hover:opacity-90'
-                      : 'bg-white/[0.12] text-zinc-500 cursor-not-allowed'
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-black hover:opacity-90'
+                      : 'bg-zinc-200 text-zinc-400 dark:bg-white/[0.12] dark:text-zinc-500 cursor-not-allowed'
                   )}
                   title="Send Message"
                 >

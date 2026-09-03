@@ -203,17 +203,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom Controls: Settings & Collapse Toggle */}
       <div className="p-3 border-t border-white/[0.08] space-y-1">
-        {/* Settings & Themes Button */}
+        {/* Settings Button */}
         <button
           onClick={onOpenSettings}
           className={cn(
             'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#212121] transition-all group',
             collapsed && 'justify-center px-0'
           )}
-          title="Settings, Themes & Air-Gap"
+          title="Settings"
         >
           <Settings className="w-4 h-4 shrink-0 text-zinc-400 group-hover:text-purple-400 transition-colors" />
-          {!collapsed && <span>Settings & Themes</span>}
+          {!collapsed && <span>Settings</span>}
         </button>
 
         {/* Collapse Toggle */}

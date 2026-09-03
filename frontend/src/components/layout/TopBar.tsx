@@ -205,12 +205,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
         </button>
 
-        {/* Settings & Themes Button */}
+        {/* Settings Button */}
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
             className="p-2 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-zinc-300 hover:text-purple-400 transition-all"
-            title="Settings & Themes"
+            title="Settings"
           >
             <Settings className="w-4 h-4 text-zinc-400 hover:text-white" />
           </button>
