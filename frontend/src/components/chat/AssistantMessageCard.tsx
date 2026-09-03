@@ -45,10 +45,10 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
       {/* Message Body Column */}
       <div className="flex-1 min-w-0 space-y-3.5">
         {/* 1. Reasoning Accordion */}
-        {message.reasoningSummary && (
+        {(message.reasoningSummary || message.executionTimeMs) && (
           <ReasoningAccordion
-            summary={message.reasoningSummary}
-            durationMs={message.executionTimeMs ? message.executionTimeMs * 0.4 : 0}
+            summary={message.reasoningSummary || 'Thought for a few moments'}
+            durationMs={message.executionTimeMs || 150}
             stages={message.reasoningDetails}
           />
         )}

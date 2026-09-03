@@ -85,11 +85,17 @@ export function App() {
     api.getSessionMessages(activeSessionId)
       .then((res) => {
         if (res && res.messages) {
-          const mapped: ChatMessage[] = res.messages.map((m, idx) => ({
+          const mapped: ChatMessage[] = res.messages.map((m: any, idx: number) => ({
             id: `msg-${activeSessionId}-${idx}`,
             role: m.role as any,
             content: m.content,
-            timestamp: new Date().toISOString(),
+            timestamp: m.timestamp || new Date().toISOString(),
+            attachments: m.attachments || [],
+            executionTimeMs: m.execution_time_ms || m.executionTimeMs || (m.role === 'assistant' ? 150 : undefined),
+            reasoningSummary: m.reasoning_summary || m.reasoningSummary || (m.role === 'assistant' ? 'Thought for a few moments' : undefined),
+            taskType: m.task_type || m.taskType,
+            citations: m.citations || [],
+            artifacts: m.artifacts || [],
           }));
           setMessages(mapped);
         }

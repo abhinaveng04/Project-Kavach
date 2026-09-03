@@ -1,9 +1,30 @@
 [
   {
+    "session_id": "session-0e031e6a",
+    "title": "New Task",
+    "created_at": "2026-09-03T07:28:48Z",
+    "message_count": 0,
+    "artifacts_count": 0
+  },
+  {
+    "session_id": "session-a3bfdfd9",
+    "title": "Test Attachments",
+    "created_at": "2026-09-03T07:27:17Z",
+    "message_count": 5,
+    "artifacts_count": 0
+  },
+  {
+    "session_id": "session-bf99f75f",
+    "title": "PDF Inspection Task",
+    "created_at": "2026-09-03T07:23:03Z",
+    "message_count": 1,
+    "artifacts_count": 0
+  },
+  {
     "session_id": "session-1dad9d79",
     "title": "HEY",
     "created_at": "2026-09-03T07:11:08Z",
-    "message_count": 2,
+    "message_count": 3,
     "artifacts_count": 0
   },
   {
