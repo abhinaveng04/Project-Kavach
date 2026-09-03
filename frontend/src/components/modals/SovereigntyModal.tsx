@@ -126,19 +126,19 @@ export const SovereigntyModal: React.FC<SovereigntyModalProps> = ({ sovereignty,
                   className={`p-3.5 rounded-xl border flex items-center justify-between ${
                     testResult.sovereignty_intact
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                      : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                   }`}
                 >
                   <span className="font-medium flex items-center gap-2 text-xs">
                     {testResult.sovereignty_intact ? (
                       <>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        Air-Gap Enforced — All 3 Egress Probes Successfully Blocked
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Air-Gap Enforced — All 3 Egress Probes Successfully Blocked (100% Isolated)</span>
                       </>
                     ) : (
                       <>
-                        <AlertTriangle className="w-4 h-4 text-rose-400" />
-                        Warning: Egress Probe Succeeded
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>Egress Detected — Host Network Interface Active (External IP Reachable)</span>
                       </>
                     )}
                   </span>
@@ -147,8 +147,22 @@ export const SovereigntyModal: React.FC<SovereigntyModalProps> = ({ sovereignty,
                   </span>
                 </div>
 
+                {!testResult.sovereignty_intact && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300/90 text-[11px] leading-relaxed flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-amber-300 block mb-0.5">
+                        Security Advisory · Sovereign Perimeter Warning
+                      </span>
+                      <span className="text-zinc-300">
+                        Outbound socket connection established via active host network interface. To enforce zero-trust air-gap compliance (MoPNG/MRPL Critical Infrastructure Standard), disconnect external network interfaces or enable hardware isolation.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1.5 font-mono">
-                  {testResult.probes.map((probe, idx) => (
+                  {Array.isArray(testResult.probes) && testResult.probes.map((probe, idx) => (
                     <div
                       key={idx}
                       className="p-3 rounded-xl bg-[#1e1e20] border border-white/[0.04] flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]"

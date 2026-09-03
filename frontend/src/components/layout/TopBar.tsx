@@ -140,13 +140,21 @@ export const TopBar: React.FC<TopBarProps> = ({
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
             egressPassed === true
               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : egressPassed === false
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
               : 'bg-[#2f2f2f] hover:bg-[#383838] border-white/[0.08] text-zinc-300 hover:text-white'
           }`}
           title="Run Tri-Probe Air-Gap Verification"
         >
-          <Radio className={`w-3.5 h-3.5 ${isTestingEgress ? 'animate-pulse text-amber-400' : 'text-emerald-400'}`} />
+          <Radio className={`w-3.5 h-3.5 ${isTestingEgress ? 'animate-pulse text-amber-400' : egressPassed === true ? 'text-emerald-400' : egressPassed === false ? 'text-amber-400' : 'text-zinc-400'}`} />
           <span className="hidden sm:inline">
-            {isTestingEgress ? 'Testing...' : egressPassed === true ? 'Air-Gap Verified' : 'Test Egress'}
+            {isTestingEgress
+              ? 'Testing...'
+              : egressPassed === true
+              ? 'Air-Gap Verified'
+              : egressPassed === false
+              ? 'Egress Detected'
+              : 'Test Egress'}
           </span>
         </button>
 

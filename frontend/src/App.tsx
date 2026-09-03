@@ -444,7 +444,7 @@ export function App() {
     setEgressPassed(null);
     try {
       const res = await api.runTestEgress();
-      setEgressPassed(res.sovereignty_intact);
+      setEgressPassed(Boolean(res?.sovereignty_intact));
     } catch (err) {
       console.error(err);
       setEgressPassed(false);
