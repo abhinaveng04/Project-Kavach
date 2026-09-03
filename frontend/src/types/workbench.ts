@@ -45,6 +45,7 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  thought?: string;
   timestamp: string;
   attachments?: string[];
   // Assistant-specific rich metadata:

@@ -67,21 +67,21 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="flex items-center justify-between text-white font-medium">
                   <span className="flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                    Qwen 2.5 Brain (Survival Mode)
+                    Qwen2.5-1.5B (Local GGUF)
                   </span>
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono">
                     ACTIVE
                   </span>
                 </div>
                 <p className="text-zinc-400 text-[11px] leading-relaxed">
-                  Kavach sovereign reasoning engine (MRPL / MoPNG). Running locally with LangGraph ReAct orchestration.
+                  Kavach local sovereign reasoning engine. Running directly on host hardware via llama-cpp-python on port 8080.
                 </p>
               </div>
 
               <div className="p-2 space-y-2 text-zinc-300 border-t border-white/[0.08] pt-2">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-zinc-400">Hardware Profile:</span>
-                  <span className="text-white font-mono">{hardwareStatus?.profile || 'dev_4gb'}</span>
+                  <span className="text-zinc-400">Primary GPU:</span>
+                  <span className="text-white font-mono truncate max-w-[140px] text-right">{gpuName}</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-zinc-400">VRAM Allocation:</span>
@@ -89,7 +89,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-zinc-400">Compute Backend:</span>
-                  <span className="text-white font-mono">{hardwareStatus?.gpu_backend || 'CUDA/Vulkan'}</span>
+                  <span className="text-white font-mono">{hardwareStatus?.gpu_backend || 'CUDA / llama-cpp'}</span>
                 </div>
               </div>
 
@@ -101,7 +101,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   }}
                   className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-white/[0.08] text-zinc-300 hover:text-white transition-colors text-[11px] flex items-center justify-between"
                 >
-                  <span>Open Hardware & Model Pool</span>
+                  <span>Hardware & Model Diagnostics</span>
                   <Cpu className="w-3.5 h-3.5 text-zinc-400" />
                 </button>
               </div>

@@ -100,6 +100,22 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
 }) => {
   const isStreaming = message.isStreaming;
 
+  // Extract genuine model thinking from <think>...</think> or <thought>...</thought> tags if present in content
+  let displayContent = message.content || '';
+  let genuineThought = message.thought || '';
+
+  const thinkMatch = displayContent.match(/<(?:think|thought)>([\s\S]*?)<\/(?:think|thought)>/i);
+  if (thinkMatch) {
+    if (!genuineThought) genuineThought = thinkMatch[1].trim();
+    displayContent = displayContent.replace(/<(?:think|thought)>[\s\S]*?<\/(?:think|thought)>\s*/i, '').trim();
+  } else {
+    const openThinkMatch = displayContent.match(/<(?:think|thought)>([\s\S]*)$/i);
+    if (openThinkMatch && openThinkMatch[1].length > 15) {
+      if (!genuineThought) genuineThought = openThinkMatch[1].trim();
+      displayContent = displayContent.replace(/<(?:think|thought)>[\s\S]*$/i, '').trim();
+    }
+  }
+
   return (
     <div className="flex gap-4 my-6 w-full max-w-3xl mx-auto animate-fade-in select-text">
       {/* 4-Point Star Icon (Drops In with Spring Animation) */}
@@ -112,11 +128,12 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
       {/* Message Body Column */}
       <div className="flex-1 min-w-0 space-y-3.5">
         {/* 1. Reasoning Accordion */}
-        {(message.reasoningSummary || message.executionTimeMs) && (
+        {(genuineThought || message.reasoningSummary || message.executionTimeMs) && (
           <ReasoningAccordion
-            summary={message.reasoningSummary || 'Thought for a few moments'}
-            durationMs={message.executionTimeMs || 150}
+            summary={message.reasoningSummary || 'Thought process'}
+            durationMs={message.executionTimeMs || 0}
             stages={message.reasoningDetails}
+            thought={genuineThought}
           />
         )}
 
@@ -154,10 +171,10 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
 
         {/* 5. Natural Markdown Prose Stream & Typing Effect */}
         <div className="text-[15px] chat-prose-text leading-[1.75] font-sans prose-chat">
-          {message.content ? (
+          {displayContent ? (
             <div className="relative">
               <MarkdownRenderer
-                content={message.content}
+                content={displayContent}
                 citations={message.citations}
                 onInspectCitation={onInspectCitation}
                 isStreaming={isStreaming}

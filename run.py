@@ -56,7 +56,7 @@ def main():
     try:
         # 1. Start Local Model Server on :8080 if not already running
         if not is_port_in_use(8080):
-            print("[1/3] Starting Local Model Server (Qwen 2.5 on :8080)...")
+            print("[1/3] Starting Local Model Server (Qwen on :8080)...")
             model_proc = subprocess.Popen(
                 [python_exe, "-m", "src.model_server"],
                 cwd=str(Path(__file__).parent),
@@ -70,6 +70,22 @@ def main():
                 time.sleep(0.5)
         else:
             print("[1/3] Port 8080 already in use (using active model server).")
+
+        # 1b. Start Local Vision Server on :8081 if vision models are present
+        vis_model = Path("models/vision/Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf")
+        vis_proj = Path("models/vision/mmproj-Qwen2.5-VL-3B-Instruct-Q8_0.gguf")
+        if vis_model.is_file() and vis_proj.is_file() and not is_port_in_use(8081):
+            print("      Starting Local Vision Server (Qwen2.5-VL on :8081)...")
+            vis_proc = subprocess.Popen(
+                [python_exe, "-m", "src.vision_server"],
+                cwd=str(Path(__file__).parent),
+            )
+            procs.append(vis_proc)
+            for _ in range(20):
+                if is_port_in_use(8081):
+                    print("      Vision server ready on port 8081.")
+                    break
+                time.sleep(0.5)
 
         # 2. Schedule Browser Launch
         def open_browser():

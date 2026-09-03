@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, Sparkles, Check, Brain } from 'lucide-react';
+import { ChevronRight, ChevronDown, Sparkles } from 'lucide-react';
 import { formatDuration } from '../../utils/formatters';
 
 interface ReasoningStage {
@@ -12,18 +12,25 @@ interface ReasoningAccordionProps {
   summary?: string;
   durationMs?: number;
   stages?: ReasoningStage[];
+  thought?: string;
   defaultExpanded?: boolean;
 }
 
 export const ReasoningAccordion: React.FC<ReasoningAccordionProps> = ({
-  summary = 'Thought for a few seconds',
+  summary = 'Thought process',
   durationMs = 0,
   stages = [],
+  thought,
   defaultExpanded = false,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
-  const displayTime = durationMs > 0 ? `Thought for ${formatDuration(durationMs)}` : 'Thought for 4.2s';
+  const displayTime =
+    durationMs > 0
+      ? `Thought for ${formatDuration(durationMs)}`
+      : thought
+      ? 'Thought process'
+      : 'Thought for a few moments';
 
   return (
     <div className="my-2 select-none">
@@ -43,8 +50,12 @@ export const ReasoningAccordion: React.FC<ReasoningAccordionProps> = ({
 
       {/* Expanded Thought Stream */}
       {expanded && (
-        <div className="mt-2 ml-2 pl-4 thought-stream-border space-y-2.5 text-xs text-zinc-400 font-sans leading-relaxed animate-slide-down">
-          {stages.length > 0 ? (
+        <div className="mt-2 ml-2 pl-3 border-l-2 border-purple-500/30 space-y-2.5 text-xs text-zinc-400 font-sans leading-relaxed animate-slide-down">
+          {thought ? (
+            <div className="text-zinc-300 whitespace-pre-wrap font-sans text-xs leading-relaxed bg-[#1c1c1f] p-3 rounded-xl border border-white/[0.06] select-text">
+              {thought}
+            </div>
+          ) : stages.length > 0 ? (
             stages.map((stg, idx) => (
               <div key={idx} className="space-y-0.5">
                 <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
@@ -57,11 +68,8 @@ export const ReasoningAccordion: React.FC<ReasoningAccordionProps> = ({
               </div>
             ))
           ) : (
-            <div className="space-y-1.5 italic text-zinc-400 text-xs">
-              <p>1. Analyzing industrial engineering constraints from user request.</p>
-              <p>2. Checking sovereign model execution policy and routing table.</p>
-              <p>3. Dispatching local specialist tools and RAG vector index.</p>
-              <p>4. Validating deterministic accuracy against standard engineering SOP.</p>
+            <div className="text-zinc-400 text-xs italic pl-1">
+              {summary}
             </div>
           )}
         </div>

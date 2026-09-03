@@ -85,18 +85,28 @@ export function App() {
     api.getSessionMessages(activeSessionId)
       .then((res) => {
         if (res && res.messages) {
-          const mapped: ChatMessage[] = res.messages.map((m: any, idx: number) => ({
-            id: `msg-${activeSessionId}-${idx}`,
-            role: m.role as any,
-            content: m.content,
-            timestamp: m.timestamp || new Date().toISOString(),
-            attachments: m.attachments || [],
-            executionTimeMs: m.execution_time_ms || m.executionTimeMs || (m.role === 'assistant' ? 150 : undefined),
-            reasoningSummary: m.reasoning_summary || m.reasoningSummary || (m.role === 'assistant' ? 'Thought for a few moments' : undefined),
-            taskType: m.task_type || m.taskType,
-            citations: m.citations || [],
-            artifacts: m.artifacts || [],
-          }));
+          const mapped: ChatMessage[] = res.messages.map((m: any, idx: number) => {
+            let content = m.content || '';
+            let thought = m.thought || '';
+            const thinkMatch = content.match(/<(?:think|thought)>([\s\S]*?)<\/(?:think|thought)>/i);
+            if (thinkMatch) {
+              if (!thought) thought = thinkMatch[1].trim();
+              content = content.replace(/<(?:think|thought)>[\s\S]*?<\/(?:think|thought)>\s*/i, '').trim();
+            }
+            return {
+              id: `msg-${activeSessionId}-${idx}`,
+              role: m.role as any,
+              content: content,
+              thought: thought || undefined,
+              timestamp: m.timestamp || new Date().toISOString(),
+              attachments: m.attachments || [],
+              executionTimeMs: m.execution_time_ms || m.executionTimeMs,
+              reasoningSummary: m.reasoning_summary || m.reasoningSummary,
+              taskType: m.task_type || m.taskType,
+              citations: m.citations || [],
+              artifacts: m.artifacts || [],
+            };
+          });
           setMessages(mapped);
         }
       })
@@ -338,19 +348,29 @@ export function App() {
       });
 
       // 1. Update metadata first while keeping isStreaming = true for typing animation
-      const fullText = resp.final_response || '';
+      let fullText = resp.final_response || '';
+      let extractedThought = resp.thought || '';
+
+      const thinkMatch = fullText.match(/<(?:think|thought)>([\s\S]*?)<\/(?:think|thought)>/i);
+      if (thinkMatch) {
+        if (!extractedThought) extractedThought = thinkMatch[1].trim();
+        fullText = fullText.replace(/<(?:think|thought)>[\s\S]*?<\/(?:think|thought)>\s*/i, '').trim();
+      }
+
       setMessages((prev) => {
         const lastIdx = prev.findIndex((m) => m.id === assistantMessageId);
         if (lastIdx === -1) return prev;
 
         const updated: ChatMessage = {
           ...prev[lastIdx],
+          thought: extractedThought || undefined,
           taskType: resp.task_type,
           citations: resp.citations,
           artifacts: resp.artifacts,
           pendingApprovals: resp.pending_approvals,
           verificationPassed: resp.verification_passed,
           executionTimeMs: resp.execution_time_ms,
+          reasoningSummary: extractedThought ? 'Thought process' : (resp.execution_time_ms ? `Thought for ${(resp.execution_time_ms / 1000).toFixed(1)}s` : undefined),
           isStreaming: true,
         };
 

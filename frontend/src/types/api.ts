@@ -65,6 +65,7 @@ export interface HardwareProfileStatus {
   profile_description: string;
   gpu_available: boolean;
   gpu_name: string;
+  secondary_gpu?: string;
   gpu_backend: string;
   device_index: number;
   vram_max_mb: number;
@@ -72,6 +73,11 @@ export interface HardwareProfileStatus {
   multi_model_concurrency: boolean;
   os: string;
   cpu_cores: number;
+  cpu_threads?: number;
+  cpu_name?: string;
+  ram_total_gb?: number;
+  ram_used_gb?: number;
+  ram_percent?: number;
 }
 
 export interface CitationItem {
@@ -139,6 +145,7 @@ export interface ChatResponse {
   status: 'completed' | 'awaiting_approval' | 'failed';
   task_type: string;
   final_response: string;
+  thought?: string;
   plan: string[];
   citations: CitationItem[];
   artifacts: ArtifactResponse[];

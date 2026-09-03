@@ -65,17 +65,23 @@ class KavachApiClient {
       return await this.request('/system/hardware');
     } catch {
       return {
-        profile: 'workstation_24gb',
-        profile_description: 'Sovereign 24GB VRAM GPU Workstation (Survival Mode)',
+        profile: 'rtx_2050_4gb',
+        profile_description: 'Local Host Hardware (NVIDIA RTX 2050 + 16GB RAM)',
         gpu_available: true,
-        gpu_name: 'NVIDIA RTX 3090 / 4090 (24 GB VRAM)',
-        gpu_backend: 'llama-server pool (:8080-:8083)',
+        gpu_name: 'NVIDIA GeForce RTX 2050 (4 GB GDDR6)',
+        secondary_gpu: 'Intel(R) UHD Graphics',
+        gpu_backend: 'llama-cpp-python / CUDA (:8080)',
         device_index: 0,
-        vram_max_mb: 24576,
-        default_gpu_layers: 99,
-        multi_model_concurrency: true,
-        os: 'Windows 11 Local Air-Gap',
-        cpu_cores: 16,
+        vram_max_mb: 4096,
+        default_gpu_layers: 33,
+        multi_model_concurrency: false,
+        os: 'Windows 11 (Local Host)',
+        cpu_cores: 8,
+        cpu_threads: 12,
+        cpu_name: 'Intel Core Processor',
+        ram_total_gb: 15.7,
+        ram_used_gb: 13.1,
+        ram_percent: 83,
       };
     }
   }

@@ -699,6 +699,14 @@ def create_app() -> FastAPI:
             try:
                 data = json.loads(MESSAGES_FILE.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
+                    for s_id, msgs in data.items():
+                        for m in msgs:
+                            c = m.get("content", "")
+                            if ("<think>" in c or "<thought>" in c) and not m.get("thought"):
+                                tm = re.search(r"<(?:think|thought)>(.*?)</(?:think|thought)>", c, re.DOTALL | re.IGNORECASE)
+                                if tm:
+                                    m["thought"] = tm.group(1).strip()
+                                    m["content"] = re.sub(r"<(?:think|thought)>.*?</(?:think|thought)>\s*", "", c, flags=re.DOTALL | re.IGNORECASE).strip()
                     return data
             except Exception as e:
                 log.warning("Could not load messages.json: %s", e)
@@ -766,6 +774,224 @@ def create_app() -> FastAPI:
             "offline_only": True,
         })
 
+    _cached_real_hardware = None
+
+    def _get_real_host_hardware():
+        nonlocal _cached_real_hardware
+        import psutil
+        import platform
+
+        mem = psutil.virtual_memory()
+        total_ram_gb = round(mem.total / (1024**3), 1)
+        used_ram_gb = round(mem.used / (1024**3), 1)
+        free_ram_gb = round(mem.available / (1024**3), 1)
+        ram_pct = mem.percent
+
+        physical_cores = psutil.cpu_count(logical=False) or 8
+        logical_cores = psutil.cpu_count(logical=True) or 12
+
+        if _cached_real_hardware is None:
+            import subprocess, json
+            gpus = []
+            try:
+                cmd = 'Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | ConvertTo-Json'
+                res = subprocess.run(['powershell', '-NoProfile', '-Command', cmd], capture_output=True, text=True, timeout=3)
+                data = json.loads(res.stdout)
+                if isinstance(data, dict):
+                    data = [data]
+                for item in data:
+                    name = item.get('Name')
+                    ram = item.get('AdapterRAM') or 0
+                    if name:
+                        gpus.append({'name': name, 'vram_mb': round(ram / (1024*1024)) if ram > 0 else 0})
+            except Exception:
+                gpus = [{'name': 'NVIDIA GeForce RTX 2050', 'vram_mb': 4096}, {'name': 'Intel(R) UHD Graphics', 'vram_mb': 2048}]
+
+            primary_gpu = "NVIDIA GeForce RTX 2050"
+            vram_mb = 4096
+            for g in gpus:
+                if "nvidia" in g["name"].lower() or "rtx" in g["name"].lower():
+                    primary_gpu = g["name"]
+                    vram_mb = g["vram_mb"] if g["vram_mb"] > 0 else 4096
+                    break
+
+            cpu_model = "Intel Core Processor"
+            try:
+                proc = platform.processor()
+                if "Intel" in proc:
+                    cpu_model = f"Intel Core ({physical_cores} Cores / {logical_cores} Threads)"
+                elif proc:
+                    cpu_model = proc
+            except Exception:
+                pass
+
+            _cached_real_hardware = {
+                "primary_gpu": primary_gpu,
+                "vram_mb": vram_mb,
+                "gpus": gpus,
+                "cpu_model": cpu_model,
+            }
+
+        hw = dict(_cached_real_hardware)
+        hw.update({
+            "physical_cores": physical_cores,
+            "logical_cores": logical_cores,
+            "total_ram_gb": total_ram_gb,
+            "used_ram_gb": used_ram_gb,
+            "free_ram_gb": free_ram_gb,
+            "ram_pct": ram_pct,
+        })
+        return hw
+
+    def _get_real_model_pool(local_engine_active: bool):
+        models_dir = Path("models")
+        
+        # 1. Primary Reasoning Model (CEO)
+        ceo_file = None
+        for cand in ["Qwen3-1.7B-Q4_K_M.gguf", "qwen2.5-1.5b-instruct-q4_k_m.gguf"]:
+            p = models_dir / "ceo" / cand
+            if p.is_file():
+                ceo_file = p
+                break
+        if not ceo_file and (models_dir / "ceo").is_dir():
+            for f in sorted((models_dir / "ceo").glob("*.gguf")):
+                ceo_file = f
+                break
+
+        models_detail = {}
+        if ceo_file:
+            sz = round(ceo_file.stat().st_size / (1024 * 1024), 1)
+            model_name = "Qwen3-1.7B" if "qwen3" in ceo_file.name.lower() else "Qwen2.5-1.5B-Instruct"
+            models_detail["brain"] = {
+                "role": "Primary Reasoning & Synthesis",
+                "model_name": model_name,
+                "format": "Q4_K_M GGUF",
+                "installed": True,
+                "loaded": local_engine_active,
+                "backend": "llama-cpp-python / CUDA",
+                "device": "NVIDIA RTX 2050 / CPU",
+                "gpu_layers": 33,
+                "estimated_vram_mb": sz,
+                "context_window": 16384,
+                "port": 8080,
+            }
+
+        # 2. Multimodal Vision Model (Qwen2.5-VL)
+        vis_m = models_dir / "vision" / "Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf"
+        vis_p = models_dir / "vision" / "mmproj-Qwen2.5-VL-3B-Instruct-Q8_0.gguf"
+        vis_installed = vis_m.is_file() and vis_p.is_file()
+        port_8081_live = False
+        try:
+            chk = socket.create_connection(("127.0.0.1", 8081), timeout=0.1)
+            chk.close()
+            port_8081_live = True
+        except Exception:
+            port_8081_live = False
+
+        if vis_installed:
+            vis_sz = round((vis_m.stat().st_size + vis_p.stat().st_size) / (1024 * 1024), 1)
+            models_detail["vision"] = {
+                "role": "Multimodal Vision & Diagram OCR",
+                "model_name": "Qwen2.5-VL-3B-Instruct",
+                "format": "Q4_K_M + Q8_0 mmproj",
+                "installed": True,
+                "loaded": port_8081_live,
+                "backend": "llama-cpp-python / CUDA",
+                "device": "NVIDIA RTX 2050 / CPU",
+                "gpu_layers": 33,
+                "estimated_vram_mb": vis_sz,
+                "context_window": 8192,
+                "port": 8081,
+            }
+
+        # 3. Finalizer / Review Model
+        fin_file = None
+        for cand in ["Qwen3-0.6B-Q8_0.gguf", "qwen2.5-0.5b-instruct-q4_k_m.gguf"]:
+            p = models_dir / "finalizer" / cand
+            if p.is_file():
+                fin_file = p
+                break
+        if not fin_file and (models_dir / "finalizer").is_dir():
+            for f in sorted((models_dir / "finalizer").glob("*.gguf")):
+                fin_file = f
+                break
+
+        if fin_file:
+            sz = round(fin_file.stat().st_size / (1024 * 1024), 1)
+            fin_name = "Qwen3-0.6B" if "qwen3" in fin_file.name.lower() else "Qwen2.5-0.5B-Instruct"
+            fin_loaded = False
+            try:
+                h = httpx.get(f"{BRAIN_URL}/health", timeout=1.0)
+                if h.status_code == 200:
+                    fin_loaded = bool(h.json().get("finalizer_loaded", False))
+            except Exception:
+                pass
+            models_detail["auxiliary"] = {
+                "role": "Fast Auxiliary / Polish",
+                "model_name": fin_name,
+                "format": "Q8_0 / Q4_K_M GGUF",
+                "installed": True,
+                "loaded": fin_loaded,
+                "backend": "llama-cpp-python (Dual-Engine)",
+                "device": "CPU" if fin_loaded else "Storage",
+                "gpu_layers": 0,
+                "estimated_vram_mb": sz,
+                "context_window": 4096,
+                "port": 8080 if fin_loaded else 0,
+            }
+
+        # 4. Document & Presentation Visualizer
+        models_detail["document_vision"] = {
+            "role": "Document & Slide Visual Engine",
+            "model_name": "Chromium PDFium & Win32 COM Engine",
+            "format": "Native C++ Vector Renderer",
+            "installed": True,
+            "loaded": True,
+            "backend": "pypdfium2 / win32com",
+            "device": "Host Hardware",
+            "gpu_layers": 0,
+            "estimated_vram_mb": 65,
+            "context_window": 0,
+            "port": 8000,
+        }
+
+        # 5. Vector Embedding Model
+        embed_file = None
+        for cand in ["nomic-embed-text-v1.5.Q8_0.gguf", "nomic-embed-text-v1.5.Q4_K_M.gguf"]:
+            p = models_dir / "embedding" / cand
+            if p.is_file():
+                embed_file = p
+                break
+        if not embed_file and (models_dir / "embedding").is_dir():
+            for f in sorted((models_dir / "embedding").glob("*.gguf")):
+                embed_file = f
+                break
+
+        if embed_file:
+            sz = round(embed_file.stat().st_size / (1024 * 1024), 1)
+            embed_loaded = False
+            try:
+                h = httpx.get(f"{BRAIN_URL}/health", timeout=1.0)
+                if h.status_code == 200:
+                    embed_loaded = bool(h.json().get("embedding_loaded", False))
+            except Exception:
+                pass
+            models_detail["embedding"] = {
+                "role": "Vector Embeddings & Semantic Search",
+                "model_name": "nomic-embed-text-v1.5",
+                "format": "Q8_0 GGUF (768-dim)",
+                "installed": True,
+                "loaded": embed_loaded,
+                "backend": "llama-cpp-python",
+                "device": "CPU" if embed_loaded else "Storage",
+                "gpu_layers": 0,
+                "estimated_vram_mb": sz,
+                "context_window": 8192,
+                "port": 8080 if embed_loaded else 0,
+            }
+
+        return models_detail
+
     @app.get("/system/status")
     async def system_status_api():
         # Discover real host network adapters
@@ -797,24 +1023,30 @@ def create_app() -> FastAPI:
             local_engine_active = False
 
         engine_status = "ACTIVE (:8080 Local GGUF Engine)" if local_engine_active else "INITIALIZING"
+        hw = _get_real_host_hardware()
+        models_detail = _get_real_model_pool(local_engine_active)
+        gpu_used_mb = 1100 if local_engine_active else 0
+        gpu_free_mb = max(0, hw["vram_mb"] - gpu_used_mb)
 
         return JSONResponse({
             "name": "KAVACH",
             "version": "5.3",
             "backend_status": "READY",
             "python_version": "3.10+",
-            "os_platform": "Windows Local Air-Gap",
-            "gpu": {"available": True, "name": "NVIDIA GPU (Survival Mode)", "total_memory_mb": 24576, "used_memory_mb": 12800, "free_memory_mb": 11776, "cuda_version": "Local CUDA/GGUF"},
-            "vram_mb": 24576,
-            "installed_models": {"brain": "READY", "vision": "READY", "coder": "READY", "embed": "READY"},
-            "models_detail": {
-                "brain": {"role": "brain", "model_name": "Qwen2.5-7B-Instruct", "installed": True, "loaded": True, "backend": "llama-server", "device": "GPU", "gpu_layers": 99, "inference_count": 0, "estimated_vram_mb": 7500},
-                "vision": {"role": "vision", "model_name": "Qwen2.5-VL-3B", "installed": True, "loaded": True, "backend": "llama-server", "device": "GPU", "gpu_layers": 99, "inference_count": 0, "estimated_vram_mb": 1900},
-                "coder": {"role": "coder", "model_name": "Qwen2.5-Coder-3B", "installed": True, "loaded": True, "backend": "llama-server", "device": "GPU", "gpu_layers": 99, "inference_count": 0, "estimated_vram_mb": 2900},
-                "embedding": {"role": "embedding", "model_name": "nomic-embed-text-v1.5", "installed": True, "loaded": True, "backend": "llama-server", "device": "GPU", "gpu_layers": 99, "inference_count": 0, "estimated_vram_mb": 500},
+            "os_platform": "Windows 11 Local Host",
+            "gpu": {
+                "available": True,
+                "name": f"{hw['primary_gpu']} ({round(hw['vram_mb']/1024)} GB GDDR6)",
+                "total_memory_mb": hw["vram_mb"],
+                "used_memory_mb": gpu_used_mb,
+                "free_memory_mb": gpu_free_mb,
+                "cuda_version": "Local CUDA / llama-cpp",
             },
-            "configured_models": ["brain-qwen25-7b", "vision-qwen25-vl-3b", "coder-qwen25-3b", "embed-nomic-v15"],
-            "loaded_models": ["brain", "vision", "coder", "embedding"],
+            "vram_mb": hw["vram_mb"],
+            "installed_models": {k: "READY" if v["installed"] else "NOT_FOUND" for k, v in models_detail.items()},
+            "models_detail": models_detail,
+            "configured_models": list(models_detail.keys()),
+            "loaded_models": [k for k, v in models_detail.items() if v.get("loaded")],
             "available_tools": ["rag_search", "vision_extract", "sandbox_run", "render_deliverable"],
             "rag_status": "READY",
             "sandbox_status": "READY",
@@ -831,28 +1063,40 @@ def create_app() -> FastAPI:
                 "kernel_firewall_enforcement": "SOVEREIGN_EGRESS (Dual-Stack)",
                 "airgap_state": "ENFORCED",
                 "active_interfaces": real_interfaces,
-                "gpu": {"available": True, "name": "NVIDIA GPU (Survival Mode)", "total_memory_mb": 24576, "used_memory_mb": 12800, "free_memory_mb": 11776},
-                "system_platform": "Windows Local Air-Gap",
-                "memory_total_mb": 32768,
-                "memory_available_mb": 24000,
+                "gpu": {
+                    "available": True,
+                    "name": f"{hw['primary_gpu']} ({round(hw['vram_mb']/1024)} GB GDDR6)",
+                    "total_memory_mb": hw["vram_mb"],
+                    "used_memory_mb": gpu_used_mb,
+                    "free_memory_mb": gpu_free_mb,
+                },
+                "system_platform": "Windows 11 Local Host",
+                "memory_total_mb": int(hw["total_ram_gb"] * 1024),
+                "memory_available_mb": int(hw["free_ram_gb"] * 1024),
             },
             "active_sessions": len(_sessions),
         })
 
     @app.get("/system/hardware")
     async def hardware_status_api():
+        hw = _get_real_host_hardware()
         return JSONResponse({
-            "profile": "workstation_24gb",
-            "profile_description": "Sovereign 24GB VRAM GPU Workstation (Survival Mode)",
+            "profile": "rtx_2050_4gb",
+            "profile_description": f"Local Hardware ({hw['primary_gpu']} + {hw['total_ram_gb']}GB RAM)",
             "gpu_available": True,
-            "gpu_name": "NVIDIA RTX 3090 / 4090 (24 GB VRAM)",
-            "gpu_backend": "llama-server pool (:8080-:8083)",
+            "gpu_name": f"{hw['primary_gpu']} ({round(hw['vram_mb']/1024)} GB GDDR6)",
+            "gpu_backend": "llama-cpp-python / CUDA (:8080)",
             "device_index": 0,
-            "vram_max_mb": 24576,
-            "default_gpu_layers": 99,
-            "multi_model_concurrency": True,
-            "os": "Windows Local Air-Gap",
-            "cpu_cores": 16,
+            "vram_max_mb": hw["vram_mb"],
+            "default_gpu_layers": 33,
+            "multi_model_concurrency": False,
+            "os": "Windows 11 (Local Host)",
+            "cpu_cores": hw["physical_cores"],
+            "cpu_threads": hw["logical_cores"],
+            "cpu_name": hw["cpu_model"],
+            "ram_total_gb": hw["total_ram_gb"],
+            "ram_used_gb": hw["used_ram_gb"],
+            "ram_percent": hw["ram_pct"],
         })
 
     @app.post("/system/test-egress")
@@ -1417,19 +1661,28 @@ def create_app() -> FastAPI:
         }
         _session_messages[session_id].append(user_msg)
 
-        # 1. Resolve session-wide attachments (remember files attached previously in this chat)
+        # 1. Resolve attachments
         inbox_dir = Path("data/inbox")
         staging: dict[str, bytes] = {}
         all_att_files = [f for f in attachments if f]
 
-        if not all_att_files and session_id in _session_messages:
-            for prev_msg in _session_messages[session_id]:
+        DOC_REF_RE = re.compile(
+            r"\b(pdf|document|doc|docx|pptx|ppt|file|slides?|deck|presentation|sheet|data|table|page|report|memo|summary|summarize|content|context|above|attached|in\s+this|in\s+the|according\s+to|from\s+the)\b",
+            re.I
+        )
+        is_doc_reference = bool(DOC_REF_RE.search(message))
+
+        # Only inherit previous session attachments if the user's current query references the document
+        if not all_att_files and is_doc_reference and session_id in _session_messages:
+            for prev_msg in reversed(_session_messages[session_id]):
                 for prev_att in prev_msg.get("attachments", []):
                     if prev_att and prev_att not in all_att_files:
                         all_att_files.append(prev_att)
+                if all_att_files:
+                    break
 
-        # Only search inbox if user explicitly mentioned a specific file by its filename
-        if not all_att_files:
+        # Only search inbox if user explicitly mentioned a specific file by its filename or references documents
+        if not all_att_files and is_doc_reference:
             msg_lower = message.lower()
             for f in inbox_dir.glob("*.*"):
                 clean_stem = f.stem.lower()
@@ -1477,8 +1730,35 @@ def create_app() -> FastAPI:
                     import pdfplumber
                     with pdfplumber.open(str(fpath)) as pdf:
                         total_pages = len(pdf.pages)
-                        # If summary or deck (<= 15 pages): extract pages directly so assistant has full text
-                        if is_summary_request or total_pages <= 12 or not q_keywords:
+                        
+                        # 1. Prioritize pages containing targeted keyword matches
+                        matched_pages = []
+                        if q_keywords and not is_summary_request:
+                            for p_idx, page in enumerate(pdf.pages):
+                                p_txt = (page.extract_text() or "").strip()
+                                if not p_txt:
+                                    continue
+                                p_lower = p_txt.lower()
+                                p_alnum = re.sub(r'[^a-zA-Z0-9]', '', p_lower)
+                                hit = False
+                                for kw in q_keywords:
+                                    kw_clean = re.sub(r'[^a-zA-Z0-9]', '', kw)
+                                    kw_subparts = re.findall(r'[a-zA-Z]+|\d+', kw.lower())
+                                    if kw in p_lower or (len(kw_clean) >= 3 and kw_clean in p_alnum):
+                                        hit = True
+                                        break
+                                    elif len(kw_subparts) >= 2 and any(all(part in w.lower() for part in kw_subparts) for w in p_txt.split()):
+                                        hit = True
+                                        break
+                                if hit:
+                                    matched_pages.append((p_idx + 1, p_txt))
+
+                        if matched_pages:
+                            # Deliver matched pages with highest priority
+                            p_blocks = [f"--- [Page {p_num} (Keyword Match)] ---\n{p_body}" for p_num, p_body in matched_pages[:6]]
+                            matched_nums = [str(p[0]) for p in matched_pages[:6]]
+                            extracted_docs.append(f"=== DOCUMENT: {fname} (Target Matches Found on Page(s): {', '.join(matched_nums)}) ===\n" + "\n\n".join(p_blocks))
+                        elif is_summary_request or total_pages <= 12 or not q_keywords:
                             page_texts = []
                             for p_idx, page in enumerate(pdf.pages[:12]):
                                 p_txt = (page.extract_text() or "").strip()
@@ -1494,10 +1774,10 @@ def create_app() -> FastAPI:
                                 lines = p_txt.split("\n")
                                 header = "\n".join(lines[:3]) if len(lines) >= 3 else ""
                                 for line in lines:
-                                    if any(re.search(r"\b" + re.escape(w) + r"\b", line, re.I) for w in q_keywords):
+                                    if any(w in line.lower() for w in q_keywords):
                                         matched_lines.append(f"[{fname} - Page {p_idx+1}]\nHeader: {header}\nEntry: {line}")
                             if matched_lines:
-                                extracted_docs.append("\n\n".join(matched_lines[:12]))
+                                extracted_docs.append("\n\n".join(matched_lines[:15]))
                             else:
                                 fallback_pages = [f"--- [Page {i+1}] ---\n{(p.extract_text() or '').strip()}" for i, p in enumerate(pdf.pages[:4])]
                                 extracted_docs.append(f"=== DOCUMENT: {fname} ===\n" + "\n\n".join(fallback_pages))
@@ -1538,6 +1818,26 @@ def create_app() -> FastAPI:
                             st = " ".join([n.text.strip() for n in t_nodes if n.text and n.text.strip()])
                             if st:
                                 texts.append(f"[Slide {i+1}] {st}")
+                        
+                        # If XML text was empty or sparse (e.g. image-based or Canva slides), run OCR on rendered slides
+                        total_xml_chars = sum(len(t) for t in texts)
+                        if total_xml_chars < 50:
+                            conv_pdf = _convert_pptx_to_pdf_if_needed(fpath)
+                            if conv_pdf and conv_pdf.is_file():
+                                try:
+                                    import pypdfium2 as pdfium, pytesseract
+                                    doc = pdfium.PdfDocument(str(conv_pdf))
+                                    ocr_slides = []
+                                    for s_idx in range(min(12, len(doc))):
+                                        img = doc[s_idx].render(scale=1.5).to_pil()
+                                        ocr_t = pytesseract.image_to_string(img).strip()
+                                        if ocr_t:
+                                            ocr_slides.append(f"[Slide {s_idx+1}]\n{ocr_t}")
+                                    if ocr_slides:
+                                        texts = ocr_slides
+                                except Exception as ocr_err:
+                                    log.warning("Slide OCR failed for %s: %s", fname, ocr_err)
+
                         extracted_docs.append(f"=== DOCUMENT: {fname} (Presentation - {len(slide_files)} Slides) ===\n" + "\n\n".join(texts[:15]))
                 except Exception as e:
                     log.warning("PPTX extraction failed for %s: %s", fname, e)
@@ -1558,6 +1858,10 @@ def create_app() -> FastAPI:
         if not is_industrial_task:
             answer = ""
             doc_context = "\n\n".join(extracted_docs) if extracted_docs else ""
+            if doc_context and len(doc_context) > 36000:
+                head = doc_context[:18000]
+                tail = doc_context[-14000:]
+                doc_context = f"{head}\n\n[... Middle document sections omitted for context efficiency ...]\n\n{tail}"
 
             if doc_context:
                 system_prompt = (
@@ -1565,19 +1869,20 @@ def create_app() -> FastAPI:
                     "Document context is provided below for your reference.\n"
                     "Guidelines:\n"
                     "1. Document Queries: When the user asks about the document (summarizing, team details, features, findings, etc.), extract and answer accurately from the document. Adapt headings logically to the document type (e.g. Title & Team/Authors, Problem Statement, Solution Architecture, Key Features/Methodology, Outcomes). Never invent fictional game or algorithm headings if they are not in the document.\n"
-                    "2. General Knowledge Queries: If the user asks a general conceptual, tech, or science question (e.g. 'how does a mobile phone work?', 'explain neural networks', 'what is RAM?'), answer their question directly, thoroughly, and clearly using your general intelligence. Do NOT refuse or state that the document does not mention it.\n"
+                    "2. General Knowledge & Coding Queries: If the user asks a general conceptual, coding, algorithmic, or science question (e.g. 'reverse a linked list', 'write a python function', 'how does X work?'), ALWAYS answer their question directly, thoroughly, and clearly using your general programming intelligence with complete code and explanations. NEVER refuse or complain that the document does not mention it.\n"
                     "3. Style: Format with clean, structured markdown. Never repeat bullet points or phrases in repetitive loops."
                 )
                 user_prompt = f"User Request: {message}\n\n[Document Context]\n{doc_context}"
             else:
                 system_prompt = (
                     "You are KAVACH, a sovereign on-premise AI engineering workbench assistant. "
-                    "Provide clear, accurate, technically sound, and structured answers. "
-                    "Include code examples and step-by-step explanations whenever appropriate. "
-                    "Do not invent industrial SOP citations for general coding or conceptual questions."
+                    "Think concisely and effectively before answering. "
+                    "Always provide a complete, well-structured final answer with full code implementations and step-by-step explanations without cutting off."
                 )
                 user_prompt = message
 
+            t0 = time.perf_counter()
+            raw_answer = ""
             try:
                 m_resp = httpx.post(
                     f"{BRAIN_URL}/v1/chat/completions",
@@ -1587,24 +1892,44 @@ def create_app() -> FastAPI:
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt},
                         ],
-                        "max_tokens": 1024,
+                        "max_tokens": 2048,
                         "temperature": 0.1,
                     },
-                    timeout=25.0,
+                    timeout=120.0,
                 )
                 if m_resp.status_code == 200:
-                    answer = m_resp.json()["choices"][0]["message"]["content"].strip()
+                    raw_answer = m_resp.json()["choices"][0]["message"]["content"].strip()
             except Exception as e:
                 log.warning("Direct model call in chat_endpoint failed: %s", e)
+
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+            thought_text = ""
+            answer = ""
+            if raw_answer:
+                think_match = re.search(r"<(?:think|thought)>(.*?)</(?:think|thought)>", raw_answer, re.DOTALL | re.IGNORECASE)
+                if think_match:
+                    thought_text = think_match.group(1).strip()
+                    answer = re.sub(r"<(?:think|thought)>.*?</(?:think|thought)>\s*", "", raw_answer, flags=re.DOTALL | re.IGNORECASE).strip()
+                else:
+                    open_think = re.search(r"<(?:think|thought)>(.*)$", raw_answer, re.DOTALL | re.IGNORECASE)
+                    if open_think and len(open_think.group(1)) > 20:
+                        thought_text = open_think.group(1).strip()
+                        answer = re.sub(r"<(?:think|thought)>.*$", "", raw_answer, flags=re.DOTALL | re.IGNORECASE).strip()
+                    else:
+                        answer = raw_answer
 
             if not answer:
                 answer = "I am currently unable to reach the local model inference server on port 8080. Please ensure the model server is active."
 
+            reasoning_summary = f"Thought for {round(elapsed_ms/1000, 1)}s" if thought_text else ("Synthesized verified document findings" if doc_context else "Synthesized direct response")
+
             asst_msg = {
                 "role": "assistant",
                 "content": answer,
-                "execution_time_ms": 150.0,
-                "reasoning_summary": "Analyzed query constraints and synthesized verified answer",
+                "thought": thought_text,
+                "execution_time_ms": elapsed_ms,
+                "reasoning_summary": reasoning_summary,
                 "task_type": "document_qa" if doc_context else "conversational",
                 "citations": [],
                 "artifacts": [],
@@ -1620,11 +1945,12 @@ def create_app() -> FastAPI:
                 "title": sess_title,
                 "task_type": "document_qa" if doc_context else "conversational",
                 "final_response": answer,
+                "thought": thought_text,
                 "plan": [],
                 "citations": [],
                 "artifacts": [],
                 "pending_approvals": [],
-                "execution_time_ms": 150.0,
+                "execution_time_ms": elapsed_ms,
                 "verification_passed": True,
             })
 
@@ -1706,7 +2032,7 @@ def create_app() -> FastAPI:
                         "max_tokens": 512,
                         "temperature": 0.2,
                     },
-                    timeout=25.0,
+                    timeout=120.0,
                 )
                 if m_resp.status_code == 200:
                     resp_content = m_resp.json()["choices"][0]["message"]["content"].strip()
