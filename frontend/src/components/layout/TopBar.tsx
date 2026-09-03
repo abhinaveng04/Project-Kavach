@@ -62,23 +62,88 @@ export const TopBar: React.FC<TopBarProps> = ({
               className="fixed inset-0 z-30"
               onClick={() => setModelDropdownOpen(false)}
             />
-            <div className="absolute left-0 mt-2 w-72 rounded-2xl bg-[#2f2f2f] border border-white/[0.12] shadow-2xl p-2 z-40 animate-scale-in text-xs">
-              <div className="p-2.5 rounded-xl bg-white/[0.05] space-y-1 mb-1">
-                <div className="flex items-center justify-between text-white font-medium">
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                    Qwen2.5-1.5B (Local GGUF)
-                  </span>
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono">
+            <div className="absolute left-0 mt-2 w-80 rounded-2xl bg-[#2a2a2d] border border-white/[0.14] shadow-2xl p-2.5 z-40 animate-scale-in text-xs">
+              <div className="px-2 py-1.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Active Sovereign Models</span>
+                <span className="text-[10px] text-emerald-400 font-mono">100% OFFLINE</span>
+              </div>
+
+              {/* Dynamic Active Model List */}
+              <div className="space-y-1.5 my-1">
+                {/* Brain / CEO Model */}
+                <div className="p-2 rounded-xl bg-white/[0.05] border border-white/[0.06] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <div>
+                      <div className="text-white font-medium text-[11px]">
+                        {systemStatus?.models_detail?.brain?.model_name || 'Qwen3-1.7B'}
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        Primary Reasoning (CEO) · {systemStatus?.models_detail?.brain?.device?.includes('RTX') ? 'RTX 2050' : 'GPU'}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
                     ACTIVE
                   </span>
                 </div>
-                <p className="text-zinc-400 text-[11px] leading-relaxed">
-                  Kavach local sovereign reasoning engine. Running directly on host hardware via llama-cpp-python on port 8080.
-                </p>
+
+                {/* Auxiliary / Finalizer Model */}
+                <div className="p-2 rounded-xl bg-white/[0.05] border border-white/[0.06] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <div>
+                      <div className="text-white font-medium text-[11px]">
+                        {systemStatus?.models_detail?.auxiliary?.model_name || 'Qwen3-0.6B'}
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        Output Finalizer & Reviewer · Host CPU
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                    ACTIVE
+                  </span>
+                </div>
+
+                {/* Multimodal Vision */}
+                <div className="p-2 rounded-xl bg-white/[0.05] border border-white/[0.06] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <div>
+                      <div className="text-white font-medium text-[11px]">
+                        {systemStatus?.models_detail?.vision?.model_name || 'Qwen2.5-VL-3B'}
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        Vision & Technical OCR · Port 8081
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                    ACTIVE
+                  </span>
+                </div>
+
+                {/* Vector Embeddings */}
+                <div className="p-2 rounded-xl bg-white/[0.05] border border-white/[0.06] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-white font-medium text-[11px]">
+                        {systemStatus?.models_detail?.embedding?.model_name || 'nomic-embed-text-v1.5'}
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        768-dim Vectors · ChromaDB RAG
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                    ACTIVE
+                  </span>
+                </div>
               </div>
 
-              <div className="p-2 space-y-2 text-zinc-300 border-t border-white/[0.08] pt-2">
+              <div className="p-2 space-y-1.5 text-zinc-300 border-t border-white/[0.08] pt-2">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-zinc-400">Primary GPU:</span>
                   <span className="text-white font-mono truncate max-w-[140px] text-right">{gpuName}</span>

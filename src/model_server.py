@@ -65,7 +65,7 @@ def get_llm():
             return None
 
         log.info("Loading GGUF model from %s...", target_model)
-        n_ctx_val = int(os.environ.get("KAVACH_N_CTX", "16384"))
+        n_ctx_val = int(os.environ.get("KAVACH_N_CTX", "12288"))
         try:
             _llm = llama_cpp.Llama(
                 model_path=str(target_model),
@@ -104,7 +104,7 @@ def get_finalizer_llm():
             try:
                 _finalizer_llm = llama_cpp.Llama(
                     model_path=str(fin_path),
-                    n_ctx=4096,
+                    n_ctx=2048,
                     n_gpu_layers=0,  # Run on CPU to keep 100% VRAM free for CEO
                     verbose=False,
                 )
@@ -181,7 +181,7 @@ def get_embed_llm():
                 _embed_llm = llama_cpp.Llama(
                     model_path=str(embed_path),
                     embedding=True,
-                    n_ctx=8192,
+                    n_ctx=4096,
                     n_gpu_layers=0,  # Runs fast on CPU with zero VRAM impact
                     verbose=False,
                 )

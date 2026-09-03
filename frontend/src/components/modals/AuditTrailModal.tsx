@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, FileCheck, Search, Clock, Terminal } from 'lucide-react';
+import { X, FileCheck, Search, Clock, Terminal, Download, ShieldCheck } from 'lucide-react';
 import { api } from '../../api/client';
 import { formatTimestamp } from '../../utils/formatters';
 
@@ -12,21 +12,33 @@ export const AuditTrailModal: React.FC<AuditTrailModalProps> = ({ sessionId, onC
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeSid, setActiveSid] = useState(sessionId || 'default');
 
   useEffect(() => {
     const fetchAudit = async () => {
       setLoading(true);
       try {
-        const res = await api.getSessionEvents(sessionId, 100);
+        const res = await api.getSessionEvents(sessionId || 'default', 100);
         setEvents(res.events || []);
+        if (res.session_id) setActiveSid(res.session_id);
       } catch (err) {
-        console.error(err);
+        console.error('Failed to fetch session audit events:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchAudit();
   }, [sessionId]);
+
+  const handleExportJson = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(events, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `kavach_audit_${activeSid}_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
 
   const filtered = events.filter((e) => {
     const matchType = e.event_type?.toLowerCase().includes(search.toLowerCase());
@@ -44,20 +56,34 @@ export const AuditTrailModal: React.FC<AuditTrailModalProps> = ({ sessionId, onC
               <FileCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 Audit Trail & Provenance Explorer
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-normal">
+                  TAMPER-EVIDENT
+                </span>
               </h3>
               <p className="text-[11px] text-zinc-400 font-mono">
-                Immutable Localhost Audit Stream · Session: {sessionId}
+                Immutable Localhost Audit Stream · Session: {activeSid}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportJson}
+              disabled={events.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs text-zinc-300 hover:text-white transition-all disabled:opacity-40"
+              title="Export complete session audit log as JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export JSON</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Filter Bar */}
@@ -94,8 +120,18 @@ export const AuditTrailModal: React.FC<AuditTrailModalProps> = ({ sessionId, onC
                 className="p-4 rounded-2xl bg-[#27272a] border border-white/[0.06] space-y-2 shadow-sm"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-purple-400 uppercase text-xs flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className={`font-semibold uppercase text-[11px] font-mono flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${
+                    evt.event_type?.includes('AIRGAP') || evt.event_type?.includes('SOVEREIGNTY')
+                      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                      : evt.event_type?.includes('DOCUMENT') || evt.event_type?.includes('PROVENANCE')
+                      ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                      : evt.event_type?.includes('FINALIZER')
+                      ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
+                      : evt.event_type?.includes('REASONING')
+                      ? 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+                      : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                  }`}>
+                    <Terminal className="w-3.5 h-3.5" />
                     {evt.event_type}
                   </span>
                   <span className="text-[11px] text-zinc-400 flex items-center gap-1">

@@ -241,7 +241,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
         {/* Disclaimer Footer */}
         <p className="text-[11px] text-center text-zinc-500 font-sans select-none">
-          KAVACH runs 100% sovereign on-premise for MRPL / MoPNG (SIH26117). All reasoning, tool sandboxes, and embeddings execute locally.
+          KAVACH runs 100% sovereign on-premise
         </p>
       </div>
     </div>

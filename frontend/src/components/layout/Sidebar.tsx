@@ -186,19 +186,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!collapsed && <span>Artifact Workspace</span>}
           </button>
 
-          <button
-            onClick={() => onSelectSection('sovereignty')}
-            className={cn(
-              'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all',
-              activeSection === 'sovereignty'
-                ? 'bg-[#2f2f2f] text-white'
-                : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
-            )}
-            title={collapsed ? 'Sovereignty Guard' : undefined}
-          >
-            <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-            {!collapsed && <span>Sovereignty Guard</span>}
-          </button>
 
           <button
             onClick={() => onSelectSection('audit')}
