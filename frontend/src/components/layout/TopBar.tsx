@@ -3,19 +3,9 @@ import {
   Sparkles,
   ChevronDown,
   Cpu,
-  Radio,
-  UploadCloud,
-  FileCheck,
-  CheckCircle2,
   Shield,
-  Layers,
-  SquarePen,
-  Moon,
-  Sun,
-  Settings,
 } from 'lucide-react';
 import { SystemStatusResponse, HardwareProfileStatus } from '../../types/api';
-import { useTheme } from '../../context/ThemeContext';
 
 interface TopBarProps {
   systemStatus: SystemStatusResponse | null;
@@ -23,11 +13,11 @@ interface TopBarProps {
   sessionTitle: string;
   onOpenSovereignty: () => void;
   onOpenHardware: () => void;
-  onOpenUpload: () => void;
-  onOpenAudit: () => void;
-  onOpenDebug: () => void;
-  onRunTestEgress: () => void;
-  onNewSession: () => void;
+  onOpenUpload?: () => void;
+  onOpenAudit?: () => void;
+  onOpenDebug?: () => void;
+  onRunTestEgress?: () => void;
+  onNewSession?: () => void;
   isTestingEgress: boolean;
   egressPassed: boolean | null;
   onOpenSettings?: () => void;
@@ -39,16 +29,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   sessionTitle,
   onOpenSovereignty,
   onOpenHardware,
-  onOpenUpload,
-  onOpenAudit,
-  onOpenDebug,
   onRunTestEgress,
-  onNewSession,
   isTestingEgress,
   egressPassed,
-  onOpenSettings,
 }) => {
-  const { isDark, toggleDarkMode } = useTheme();
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 
   const isSovereign = systemStatus?.sovereignty.offline_only ?? true;
@@ -131,98 +115,42 @@ export const TopBar: React.FC<TopBarProps> = ({
         <span className="truncate">{sessionTitle || 'New Task'}</span>
       </div>
 
-      {/* Right Controls */}
+      {/* Right Controls: Consolidated Sovereign Status Badge */}
       <div className="flex items-center gap-2">
-        {/* Test Egress Button */}
         <button
-          onClick={onRunTestEgress}
-          disabled={isTestingEgress}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+          onClick={() => {
+            onRunTestEgress?.();
+            onOpenSovereignty();
+          }}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-medium transition-all ${
             egressPassed === true
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_12px_rgba(52,211,153,0.15)]'
               : egressPassed === false
-              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-              : 'bg-[#2f2f2f] hover:bg-[#383838] border-white/[0.08] text-zinc-300 hover:text-white'
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+              : 'bg-[#27272a] hover:bg-[#323236] border-white/[0.08] text-zinc-300 hover:text-white'
           }`}
-          title="Run Tri-Probe Air-Gap Verification"
+          title="Open Sovereign Air-Gap & Security Dashboard"
         >
-          <Radio className={`w-3.5 h-3.5 ${isTestingEgress ? 'animate-pulse text-amber-400' : egressPassed === true ? 'text-emerald-400' : egressPassed === false ? 'text-amber-400' : 'text-zinc-400'}`} />
-          <span className="hidden sm:inline">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              egressPassed === true
+                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                : egressPassed === false
+                ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]'
+                : 'bg-emerald-400 animate-pulse'
+            }`}
+          />
+          <span className="font-medium">
             {isTestingEgress
               ? 'Testing...'
               : egressPassed === true
-              ? 'Air-Gap Verified'
+              ? 'Sovereign Air-Gap · Verified'
               : egressPassed === false
               ? 'Egress Detected'
-              : 'Test Egress'}
+              : 'Sovereign Air-Gap'}
           </span>
+          <Shield className="w-3.5 h-3.5 opacity-70" />
         </button>
-
-        {/* Upload Button */}
-        <button
-          onClick={onOpenUpload}
-          className="p-2 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-zinc-300 hover:text-white transition-all"
-          title="Upload Document (PDF, XLSX, P&ID)"
-        >
-          <UploadCloud className="w-4 h-4 text-blue-400" />
-        </button>
-
-        {/* Sovereignty Badge */}
-        <button
-          onClick={onOpenSovereignty}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-xs font-medium text-zinc-300 hover:text-white transition-all"
-          title="Sovereignty & Air-Gap Dashboard"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
-          <span className="hidden lg:inline text-emerald-400">Sovereign</span>
-        </button>
-
-        {/* Audit Lineage */}
-        <button
-          onClick={onOpenAudit}
-          className="p-2 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-zinc-300 hover:text-white transition-all"
-          title="Audit Trail & Lineage Explorer"
-        >
-          <FileCheck className="w-4 h-4 text-zinc-400" />
-        </button>
-
-        {/* Developer Context Introspection */}
-        <button
-          onClick={onOpenDebug}
-          className="p-2 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-zinc-300 hover:text-purple-400 transition-all"
-          title="Developer Context & Runtime Introspection"
-        >
-          <Layers className="w-4 h-4 text-purple-400" />
-        </button>
-
-        {/* New Chat Icon Button */}
-        <button
-          onClick={onNewSession}
-          className="p-2 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-zinc-300 hover:text-white transition-all"
-          title="New Task"
-        >
-          <SquarePen className="w-4 h-4 text-zinc-300" />
-        </button>
-
-        {/* Quick Dark Mode Toggle */}
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-zinc-300 hover:text-white transition-all"
-          title={isDark ? 'Switch to Daylight / Light Paper Mode' : 'Switch to Dark Obsidian Mode'}
-        >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
-        </button>
-
-        {/* Settings Button */}
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            className="p-2 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.08] text-zinc-300 hover:text-purple-400 transition-all"
-            title="Settings"
-          >
-            <Settings className="w-4 h-4 text-zinc-400 hover:text-white" />
-          </button>
-        )}
       </div>
     </header>
   );

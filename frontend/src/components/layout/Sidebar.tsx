@@ -14,10 +14,13 @@ import {
   Sparkles,
   Sliders,
   Settings,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { SessionResponse } from '../../types/api';
 import { SidebarSection } from '../../types/workbench';
 import { cn } from '../../utils/cn';
+import { useTheme } from '../../context/ThemeContext';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -44,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteSession,
   onOpenSettings,
 }) => {
+  const { isDark, toggleDarkMode } = useTheme();
   return (
     <aside
       className={cn(
@@ -226,20 +230,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom Controls: Settings & Collapse Toggle */}
+      {/* Bottom Controls: Settings, Theme & Collapse Toggle */}
       <div className="p-3 border-t border-white/[0.08] space-y-1">
-        {/* Settings Button */}
-        <button
-          onClick={onOpenSettings}
-          className={cn(
-            'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#212121] transition-all group',
-            collapsed && 'justify-center px-0'
+        {/* Settings & Theme Quick Row */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onOpenSettings}
+            className={cn(
+              'flex-1 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#212121] transition-all group',
+              collapsed && 'justify-center px-0'
+            )}
+            title="Settings & Preferences"
+          >
+            <Settings className="w-4 h-4 shrink-0 text-zinc-400 group-hover:text-purple-400 transition-colors" />
+            {!collapsed && <span>Settings</span>}
+          </button>
+
+          {!collapsed && (
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#212121] transition-all shrink-0"
+              title={isDark ? 'Switch to Daylight / Light Paper Mode' : 'Switch to Dark Obsidian Mode'}
+            >
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
+            </button>
           )}
-          title="Settings"
-        >
-          <Settings className="w-4 h-4 shrink-0 text-zinc-400 group-hover:text-purple-400 transition-colors" />
-          {!collapsed && <span>Settings</span>}
-        </button>
+        </div>
+
+        {/* In collapsed mode: separate Theme Toggle button */}
+        {collapsed && (
+          <button
+            onClick={toggleDarkMode}
+            className="w-full flex items-center justify-center p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#212121] transition-all"
+            title={isDark ? 'Switch to Daylight / Light Paper Mode' : 'Switch to Dark Obsidian Mode'}
+          >
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
+          </button>
+        )}
 
         {/* Collapse Toggle */}
         <button

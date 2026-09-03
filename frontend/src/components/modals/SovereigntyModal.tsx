@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   ShieldCheck,
@@ -33,6 +33,10 @@ export const SovereigntyModal: React.FC<SovereigntyModalProps> = ({ sovereignty,
       setTesting(false);
     }
   };
+
+  useEffect(() => {
+    handleRunTest();
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in select-text">
@@ -115,7 +119,7 @@ export const SovereigntyModal: React.FC<SovereigntyModalProps> = ({ sovereignty,
                 className="px-4 py-2 rounded-xl bg-white text-black font-semibold text-xs hover:opacity-90 transition-all shadow-md active:scale-95 flex items-center gap-2"
               >
                 <Radio className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
-                <span>{testing ? 'Testing...' : 'Run Test Egress'}</span>
+                <span>{testing ? 'Testing Live Sockets...' : 'Re-test Egress Probes'}</span>
               </button>
             </div>
 

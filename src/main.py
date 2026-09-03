@@ -507,9 +507,10 @@ def create_app() -> FastAPI:
         Implements: PRD §6.5 / FR7 / ARCH §12.5 / ARCH §15 risk mitigation.
         """
         probes_def = [
-            ("8.8.8.8", 53, "external DNS (IPv4)"),
-            ("10.0.99.254", 445, "lateral — unassigned subnet IP (IPv4)"),
-            ("2001:4860:4860::8888", 53, "external DNS (IPv6)"),
+            ("8.8.8.8", 53, "External Public Internet (IPv4 DNS)"),
+            ("api.openai.com", 443, "External Cloud AI API (OpenAI HTTPS)"),
+            ("10.0.99.254", 445, "Lateral Subnet Boundary (Internal LAN)"),
+            ("2001:4860:4860::8888", 53, "External IPv6 Dual-Stack Probe"),
         ]
         results = []
         all_blocked = True
@@ -767,20 +768,43 @@ def create_app() -> FastAPI:
 
     @app.get("/system/status")
     async def system_status_api():
+        # Discover real host network adapters
+        real_interfaces = []
+        try:
+            import psutil
+            for iface_name, addrs in psutil.net_if_addrs().items():
+                ipv4_list = [a.address for a in addrs if a.family == 2]
+                if ipv4_list:
+                    ip_addr = ipv4_list[0]
+                    if ip_addr == "127.0.0.1":
+                        real_interfaces.append(f"{iface_name} ({ip_addr} - Loopback)")
+                    elif ip_addr.startswith("169.254."):
+                        real_interfaces.append(f"{iface_name} (Unassigned / Inactive)")
+                    else:
+                        real_interfaces.append(f"{iface_name} ({ip_addr} - Active)")
+                else:
+                    real_interfaces.append(f"{iface_name} (Inactive)")
+        except Exception:
+            real_interfaces = ["Loopback (127.0.0.1 - Active)"]
+
+        # Real check for local model engine on port 8080
+        local_engine_active = False
+        try:
+            chk = socket.create_connection(("127.0.0.1", 8080), timeout=0.1)
+            chk.close()
+            local_engine_active = True
+        except Exception:
+            local_engine_active = False
+
+        engine_status = "ACTIVE (:8080 Local GGUF Engine)" if local_engine_active else "INITIALIZING"
+
         return JSONResponse({
             "name": "KAVACH",
             "version": "5.3",
             "backend_status": "READY",
             "python_version": "3.10+",
             "os_platform": "Windows Local Air-Gap",
-            "gpu": {
-                "available": True,
-                "name": "NVIDIA GPU (Survival Mode)",
-                "total_memory_mb": 24576,
-                "used_memory_mb": 12800,
-                "free_memory_mb": 11776,
-                "cuda_version": "Local CUDA/GGUF",
-            },
+            "gpu": {"available": True, "name": "NVIDIA GPU (Survival Mode)", "total_memory_mb": 24576, "used_memory_mb": 12800, "free_memory_mb": 11776, "cuda_version": "Local CUDA/GGUF"},
             "vram_mb": 24576,
             "installed_models": {"brain": "READY", "vision": "READY", "coder": "READY", "embed": "READY"},
             "models_detail": {
@@ -798,15 +822,15 @@ def create_app() -> FastAPI:
                 "offline_only": True,
                 "allow_external_network": False,
                 "local_endpoints_only": True,
-                "external_ai_apis": "DISABLED",
-                "remote_model_endpoints": "DISABLED",
-                "telemetry": "DISABLED",
-                "local_inference": "ENABLED",
-                "network_policy": "OFFLINE ONLY",
+                "external_ai_apis": "DISABLED (Zero Cloud Credentials)",
+                "remote_model_endpoints": "DISABLED (Zero Egress Policy)",
+                "telemetry": "DISABLED (Zero Cloud Tracking)",
+                "local_inference": engine_status,
+                "network_policy": "OFFLINE ONLY (Air-Gap Standard)",
                 "application_level_policy": "ACTIVE (Localhost Strictly Enforced)",
                 "kernel_firewall_enforcement": "SOVEREIGN_EGRESS (Dual-Stack)",
                 "airgap_state": "ENFORCED",
-                "active_interfaces": ["127.0.0.1", "localhost"],
+                "active_interfaces": real_interfaces,
                 "gpu": {"available": True, "name": "NVIDIA GPU (Survival Mode)", "total_memory_mb": 24576, "used_memory_mb": 12800, "free_memory_mb": 11776},
                 "system_platform": "Windows Local Air-Gap",
                 "memory_total_mb": 32768,
