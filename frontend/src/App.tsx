@@ -28,8 +28,19 @@ export function App() {
   const [isTestingEgress, setIsTestingEgress] = useState(false);
   const [egressPassed, setEgressPassed] = useState<boolean | null>(null);
 
-  // 1. Initial boot data fetch
+  // 1. Initial boot data fetch with persistence recovery
   useEffect(() => {
+    const cachedSess = localStorage.getItem('kavach_sessions');
+    if (cachedSess) {
+      try {
+        const parsed = JSON.parse(cachedSess);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSessions(parsed);
+          setActiveSessionId(parsed[0].session_id);
+        }
+      } catch {}
+    }
+
     const initSystem = async () => {
       try {
         const [sys, hw, sessList, artList] = await Promise.all([
@@ -45,12 +56,13 @@ export function App() {
 
         if (sessList && sessList.length > 0) {
           setSessions(sessList);
-          setActiveSessionId(sessList[0].session_id);
-        } else {
-          // Create initial session
+          setActiveSessionId((prev) => prev || sessList[0].session_id);
+          localStorage.setItem('kavach_sessions', JSON.stringify(sessList));
+        } else if (!cachedSess) {
           const newSess = await api.createSession('General Engineering Task');
           setSessions([newSess]);
           setActiveSessionId(newSess.session_id);
+          localStorage.setItem('kavach_sessions', JSON.stringify([newSess]));
         }
       } catch (err) {
         console.error('Initial boot error:', err);
@@ -298,6 +310,27 @@ export function App() {
         attachments: attachedFiles,
       });
 
+      // Auto-update session title and message count
+      const cleanSnippet = userText.trim();
+      const fallbackTitle = cleanSnippet.length > 32 ? cleanSnippet.slice(0, 32) + '...' : cleanSnippet;
+      const resolvedTitle = resp.title || fallbackTitle;
+
+      setSessions((prev) => {
+        const updated = prev.map((s) => {
+          if (s.session_id === (activeSessionId || resp.session_id)) {
+            const isGeneric = !s.title || s.title === 'New Task' || s.title === 'General Engineering Task' || s.title.startsWith('Task_');
+            return {
+              ...s,
+              title: isGeneric ? resolvedTitle : s.title,
+              message_count: (s.message_count || 0) + 1,
+            };
+          }
+          return s;
+        });
+        localStorage.setItem('kavach_sessions', JSON.stringify(updated));
+        return updated;
+      });
+
       // Update assistant message with final verified backend payload
       setMessages((prev) => {
         const lastIdx = prev.findIndex((m) => m.id === assistantMessageId);
@@ -344,8 +377,12 @@ export function App() {
   // 5. Session Actions
   const handleNewSession = async () => {
     try {
-      const sess = await api.createSession();
-      setSessions((prev) => [sess, ...prev]);
+      const sess = await api.createSession('New Task');
+      setSessions((prev) => {
+        const next = [sess, ...prev];
+        localStorage.setItem('kavach_sessions', JSON.stringify(next));
+        return next;
+      });
       setActiveSessionId(sess.session_id);
       setMessages([]);
       setSelectedArtifact(null);
@@ -363,15 +400,14 @@ export function App() {
     e.stopPropagation();
     try {
       await api.deleteSession(sessionId);
-      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
-      if (activeSessionId === sessionId) {
-        const remaining = sessions.filter((s) => s.session_id !== sessionId);
-        if (remaining.length > 0) {
-          setActiveSessionId(remaining[0].session_id);
-        } else {
-          handleNewSession();
+      setSessions((prev) => {
+        const next = prev.filter((s) => s.session_id !== sessionId);
+        localStorage.setItem('kavach_sessions', JSON.stringify(next));
+        if (activeSessionId === sessionId && next.length > 0) {
+          setActiveSessionId(next[0].session_id);
         }
-      }
+        return next;
+      });
     } catch (err) {
       console.error(err);
     }

@@ -66,48 +66,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!collapsed && <span className="text-xs">New Task</span>}
         </button>
 
-        {/* Navigation Tools */}
-        <div className="space-y-1">
-          <button
-            onClick={() => onSelectSection('chat')}
-            className={cn(
-              'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all',
-              activeSection === 'chat'
-                ? 'bg-[#2f2f2f] text-white shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+        {/* Recent Tasks List (Replaces static Active Chat button) */}
+        {sessions.length > 0 && (
+          <div className="pt-1 space-y-1">
+            {!collapsed && (
+              <div className="flex items-center justify-between px-3 mb-1">
+                <p className="text-[11px] font-medium text-zinc-500">Recent Tasks</p>
+                <span className="text-[10px] font-mono text-zinc-600">{sessions.length}</span>
+              </div>
             )}
-            title={collapsed ? 'Active Chat' : undefined}
-          >
-            <MessageSquare className="w-4 h-4 shrink-0 text-zinc-300" />
-            {!collapsed && <span>Active Chat</span>}
-          </button>
-        </div>
 
-        {/* Recent Tasks History */}
-        {!collapsed && sessions.length > 0 && (
-          <div className="pt-2">
-            <p className="text-[11px] font-medium text-zinc-500 px-3 mb-1.5">Recent Tasks</p>
-            <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
+            <div className={cn('space-y-0.5 max-h-[calc(100vh-360px)] overflow-y-auto pr-1', collapsed && 'pr-0')}>
               {sessions.map((s) => {
-                const isSelected = s.session_id === activeSessionId;
+                const isSelected = s.session_id === activeSessionId && activeSection === 'chat';
+                const sessionTitle = s.title || `Task_${s.session_id.slice(0, 6)}`;
+
+                if (collapsed) {
+                  return (
+                    <button
+                      key={s.session_id}
+                      onClick={() => {
+                        onSelectSession(s.session_id);
+                        onSelectSection('chat');
+                      }}
+                      className={cn(
+                        'w-full flex items-center justify-center p-2 rounded-xl text-xs transition-all',
+                        isSelected
+                          ? 'bg-[#2f2f2f] text-purple-400 shadow-sm'
+                          : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+                      )}
+                      title={sessionTitle}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </button>
+                  );
+                }
+
                 return (
                   <div
                     key={s.session_id}
-                    onClick={() => onSelectSession(s.session_id)}
+                    onClick={() => {
+                      onSelectSession(s.session_id);
+                      onSelectSection('chat');
+                    }}
                     className={cn(
                       'group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all',
                       isSelected
-                        ? 'bg-[#2f2f2f] text-white font-medium'
+                        ? 'bg-[#2f2f2f] text-white font-medium shadow-sm'
                         : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
                     )}
+                    title={sessionTitle}
                   >
-                    <span className="truncate font-mono text-[11px]">
-                      Task_{s.session_id.slice(0, 6)}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-zinc-500 font-mono">
-                        {s.message_count}
-                      </span>
+                    <div className="flex items-center gap-2 truncate pr-2 min-w-0">
+                      <MessageSquare
+                        className={cn(
+                          'w-3.5 h-3.5 shrink-0 transition-colors',
+                          isSelected ? 'text-purple-400' : 'text-zinc-400 group-hover:text-zinc-300'
+                        )}
+                      />
+                      <span className="truncate text-xs">{sessionTitle}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {s.message_count > 0 && (
+                        <span className="text-[10px] text-zinc-500 font-mono px-1 rounded bg-white/[0.04]">
+                          {s.message_count}
+                        </span>
+                      )}
                       <button
                         onClick={(e) => onDeleteSession(s.session_id, e)}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 transition-opacity rounded"

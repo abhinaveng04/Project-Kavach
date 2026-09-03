@@ -121,6 +121,7 @@ export interface ChatResponse {
   pending_approvals: PendingApproval[];
   execution_time_ms: number;
   verification_passed: boolean;
+  title?: string;
 }
 
 export interface SessionResponse {
@@ -128,6 +129,7 @@ export interface SessionResponse {
   created_at: string;
   message_count: number;
   artifacts_count: number;
+  title?: string;
 }
 
 export interface FileUploadResponse {

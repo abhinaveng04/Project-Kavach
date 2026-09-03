@@ -24,6 +24,7 @@ import logging
 import os
 import re
 import socket
+import time
 import traceback
 from pathlib import Path
 from typing import AsyncIterator, Optional
@@ -630,10 +631,94 @@ def create_app() -> FastAPI:
     # Frontend Workbench Compatibility Routes (Kavach UI Integration)
     # ------------------------------------------------------------------
 
-    _sessions = [
-        {"session_id": "default-session", "created_at": "2026-09-02T20:00:00Z", "message_count": 0, "artifacts_count": 0}
-    ]
-    _session_messages: dict[str, list] = {}
+    SESSIONS_FILE = Path("data/sessions.json")
+    MESSAGES_FILE = Path("data/messages.json")
+
+    def _load_persisted_sessions() -> list[dict]:
+        if SESSIONS_FILE.is_file():
+            try:
+                data = json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+            except Exception as e:
+                log.warning("Could not load sessions.json: %s", e)
+        return [
+            {
+                "session_id": "default-session",
+                "title": "General Engineering Task",
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "message_count": 0,
+                "artifacts_count": 0,
+            }
+        ]
+
+    def _save_persisted_sessions(sessions_list: list[dict]) -> None:
+        try:
+            SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            SESSIONS_FILE.write_text(json.dumps(sessions_list, indent=2), encoding="utf-8")
+        except Exception as e:
+            log.warning("Could not persist sessions.json: %s", e)
+
+    def _load_persisted_messages() -> dict[str, list]:
+        if MESSAGES_FILE.is_file():
+            try:
+                data = json.loads(MESSAGES_FILE.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
+            except Exception as e:
+                log.warning("Could not load messages.json: %s", e)
+        return {}
+
+    def _save_persisted_messages(messages_dict: dict[str, list]) -> None:
+        try:
+            MESSAGES_FILE.parent.mkdir(parents=True, exist_ok=True)
+            MESSAGES_FILE.write_text(json.dumps(messages_dict, indent=2), encoding="utf-8")
+        except Exception as e:
+            log.warning("Could not persist messages.json: %s", e)
+
+    def _update_session_on_message(session_id: str, user_message: str) -> str:
+        sess = None
+        for s in _sessions:
+            if s.get("session_id") == session_id:
+                sess = s
+                break
+        if not sess:
+            sess = {
+                "session_id": session_id,
+                "title": "New Task",
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "message_count": 0,
+                "artifacts_count": 0,
+            }
+            _sessions.insert(0, sess)
+
+        sess["message_count"] = (sess.get("message_count") or 0) + 1
+
+        curr_title = sess.get("title", "")
+        is_default_title = (
+            not curr_title
+            or curr_title in ["New Task", "General Engineering Task", "Default Task"]
+            or curr_title.startswith("Task_")
+            or curr_title.startswith("session-")
+        )
+
+        if is_default_title:
+            clean = re.sub(r"[\r\n\t]+", " ", user_message).strip()
+            clean = re.sub(r"^[^\w]+", "", clean)
+            words = clean.split()
+            if len(words) > 6:
+                new_title = " ".join(words[:6]) + "..."
+            else:
+                new_title = clean[:38]
+            if new_title:
+                sess["title"] = new_title[0].upper() + new_title[1:]
+
+        _save_persisted_sessions(_sessions)
+        _save_persisted_messages(_session_messages)
+        return sess.get("title", "New Task")
+
+    _sessions = _load_persisted_sessions()
+    _session_messages = _load_persisted_messages()
 
     @app.get("/health")
     @app.get("/api/health")
@@ -727,24 +812,44 @@ def create_app() -> FastAPI:
         except Exception:
             body = {}
         sess_id = f"session-{os.urandom(4).hex()}"
+        initial_title = body.get("title") or "New Task"
         new_sess = {
             "session_id": sess_id,
-            "created_at": "2026-09-02T20:00:00Z",
+            "title": initial_title,
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "message_count": 0,
             "artifacts_count": 0,
         }
         _sessions.insert(0, new_sess)
+        _save_persisted_sessions(_sessions)
         return JSONResponse(new_sess)
 
     @app.get("/sessions/{session_id}/messages")
     async def get_session_messages(session_id: str):
         return JSONResponse({"session_id": session_id, "messages": _session_messages.get(session_id, [])})
 
+    @app.patch("/sessions/{session_id}")
+    async def update_session(session_id: str, request: Request):
+        try:
+            body = await request.json()
+            new_title = body.get("title")
+            if new_title:
+                for s in _sessions:
+                    if s.get("session_id") == session_id:
+                        s["title"] = new_title
+                        break
+                _save_persisted_sessions(_sessions)
+        except Exception:
+            pass
+        return JSONResponse({"status": "ok", "session_id": session_id})
+
     @app.delete("/sessions/{session_id}")
     async def delete_session(session_id: str):
-        global _sessions
+        global _sessions, _session_messages
         _sessions = [s for s in _sessions if s.get("session_id") != session_id]
         _session_messages.pop(session_id, None)
+        _save_persisted_sessions(_sessions)
+        _save_persisted_messages(_session_messages)
         return JSONResponse({"status": "deleted", "session_id": session_id})
 
     @app.post("/files/upload")
@@ -932,11 +1037,13 @@ def create_app() -> FastAPI:
                 _session_messages[session_id] = []
             _session_messages[session_id].append({"role": "user", "content": message})
             _session_messages[session_id].append({"role": "assistant", "content": answer})
+            sess_title = _update_session_on_message(session_id, message)
 
             return JSONResponse({
                 "session_id": session_id,
                 "request_id": f"chat-{os.urandom(4).hex()}",
                 "status": "completed",
+                "title": sess_title,
                 "task_type": "document_qa" if doc_context else "conversational",
                 "final_response": answer,
                 "plan": [],
@@ -1040,11 +1147,13 @@ def create_app() -> FastAPI:
             resp_content = f"Analysis completed for: '{message}'."
 
         _session_messages[session_id].append({"role": "assistant", "content": resp_content})
+        sess_title = _update_session_on_message(session_id, message)
 
         return JSONResponse({
             "session_id": session_id,
             "request_id": task_id,
             "status": "completed",
+            "title": sess_title,
             "task_type": specialist,
             "final_response": resp_content,
             "plan": [final_state.get("current_plan", "Plan completed")],
