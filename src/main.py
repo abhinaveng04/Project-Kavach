@@ -939,23 +939,43 @@ def create_app() -> FastAPI:
         }
         _session_messages[session_id].append(user_msg)
 
-        # 1. Scan attachments and extract text/evidence if present
+        # 1. Resolve session-wide attachments (remember files attached previously in this chat)
         inbox_dir = Path("data/inbox")
         staging: dict[str, bytes] = {}
-        matched_doc_lines: list[str] = []
+        all_att_files = [f for f in attachments if f]
+
+        if not all_att_files and session_id in _session_messages:
+            for prev_msg in _session_messages[session_id]:
+                for prev_att in prev_msg.get("attachments", []):
+                    if prev_att and prev_att not in all_att_files:
+                        all_att_files.append(prev_att)
+
+        if not all_att_files and any(k in message.lower() for k in ["document", "pdf", "file", "in this", "in that", "table", "slide", "presentation", "deck", "ppt"]):
+            all_att_files = [f.name for f in inbox_dir.glob("*.pdf")]
+
+        # 2. Check if user is asking to summarize, give an overview, or just attached a document
+        SUMMARY_KEYWORDS = {
+            "summarize", "summary", "overview", "explain", "about", "gist", "what is this",
+            "tell me about", "key points", "highlights", "takeaways", "read", "review",
+            "attached", "check", "slides", "deck", "presentation", "details", "content"
+        }
+        msg_lower = message.lower()
+        is_summary_request = (
+            any(k in msg_lower for k in SUMMARY_KEYWORDS)
+            or len(message.strip().split()) <= 4
+            or any(p in msg_lower for p in ["pdf is attached", "file is attached", "check this", "see this", "read this", "here is the", "pdf attached"])
+        )
 
         STOP_WORDS = {
             "where", "is", "in", "this", "find", "the", "team", "name", "that",
             "i", "mean", "it", "a", "shortlisting", "data", "what", "who", "how",
             "to", "for", "of", "and", "or", "on", "at", "can", "you", "please",
-            "tell", "me", "with", "there", "any"
+            "tell", "me", "with", "there", "any", "pdf", "document", "file"
         }
         raw_tokens = [w.lower() for w in re.split(r"\W+", message) if len(w) > 1]
         q_keywords = [w for w in raw_tokens if w not in STOP_WORDS]
 
-        all_att_files = list(attachments)
-        if not all_att_files and any(k in message.lower() for k in ["document", "pdf", "file", "in this", "in that", "table"]):
-            all_att_files = [f.name for f in inbox_dir.glob("*.pdf")]
+        extracted_docs: list[str] = []
 
         for fname in all_att_files:
             fpath = inbox_dir / fname
@@ -972,47 +992,65 @@ def create_app() -> FastAPI:
                 try:
                     import pdfplumber
                     with pdfplumber.open(str(fpath)) as pdf:
-                        for p_idx, page in enumerate(pdf.pages):
-                            p_txt = page.extract_text() or ""
-                            lines = p_txt.split("\n")
-                            header = "\n".join(lines[:3]) if len(lines) >= 3 else ""
-                            for line in lines:
-                                if q_keywords and any(re.search(r"\b" + re.escape(w) + r"\b", line, re.I) for w in q_keywords):
-                                    matched_doc_lines.append(f"[{fname} - Page {p_idx+1}]\nHeader: {header}\nEntry: {line}")
-                                elif not q_keywords:
-                                    matched_doc_lines.append(f"[{fname} - Page {p_idx+1}]\n{p_txt[:400]}")
-                                    break
+                        total_pages = len(pdf.pages)
+                        # If summary or deck (<= 15 pages): extract pages directly so assistant has full text
+                        if is_summary_request or total_pages <= 12 or not q_keywords:
+                            page_texts = []
+                            for p_idx, page in enumerate(pdf.pages[:12]):
+                                p_txt = (page.extract_text() or "").strip()
+                                if p_txt:
+                                    page_texts.append(f"--- [Page/Slide {p_idx+1}] ---\n{p_txt}")
+                            if page_texts:
+                                extracted_docs.append(f"=== DOCUMENT: {fname} (Total Pages: {total_pages}) ===\n" + "\n\n".join(page_texts))
+                        else:
+                            # Specific keyword query on larger documents
+                            matched_lines = []
+                            for p_idx, page in enumerate(pdf.pages):
+                                p_txt = page.extract_text() or ""
+                                lines = p_txt.split("\n")
+                                header = "\n".join(lines[:3]) if len(lines) >= 3 else ""
+                                for line in lines:
+                                    if any(re.search(r"\b" + re.escape(w) + r"\b", line, re.I) for w in q_keywords):
+                                        matched_lines.append(f"[{fname} - Page {p_idx+1}]\nHeader: {header}\nEntry: {line}")
+                            if matched_lines:
+                                extracted_docs.append("\n\n".join(matched_lines[:12]))
+                            else:
+                                fallback_pages = [f"--- [Page {i+1}] ---\n{(p.extract_text() or '').strip()}" for i, p in enumerate(pdf.pages[:4])]
+                                extracted_docs.append(f"=== DOCUMENT: {fname} ===\n" + "\n\n".join(fallback_pages))
                 except Exception as e:
                     log.warning("PDF extraction failed for %s: %s", fname, e)
             elif fpath.suffix.lower() in [".txt", ".md", ".csv", ".json", ".log"]:
                 try:
                     txt = fpath.read_text(encoding="utf-8", errors="ignore")
-                    lines = txt.split("\n")
-                    for line in lines:
-                        if q_keywords and any(re.search(r"\b" + re.escape(w) + r"\b", line, re.I) for w in q_keywords):
-                            matched_doc_lines.append(f"[{fname}]\nEntry: {line}")
+                    extracted_docs.append(f"=== FILE: {fname} ===\n" + txt[:4000])
                 except Exception as e:
                     log.warning("Text read failed for %s: %s", fname, e)
 
-        # Check industrial task intent (memo, report, deliverable, corrosion calculation, etc.)
+        # Check industrial task intent (refinery SOP citations, Word deliverables, etc.)
         DOC_INTENT_RE = re.compile(
             r"\b(memo|report|deliverable|inspect|inspection|corrosion|p&id|thickness|calculate|compute|trend|rate|unit\s*200|pipeline|pump|valve)\b",
             re.I,
         )
-        is_industrial_task = bool(DOC_INTENT_RE.search(message))
+        is_industrial_task = bool(DOC_INTENT_RE.search(message)) and not extracted_docs
 
         if not is_industrial_task:
             answer = ""
-            doc_context = "\n\n".join(matched_doc_lines[:8]) if matched_doc_lines else ""
+            doc_context = "\n\n".join(extracted_docs) if extracted_docs else ""
 
             if doc_context:
                 system_prompt = (
-                    "You are KAVACH, a sovereign AI assistant. "
-                    "Answer the user's question accurately, completely, and directly based on the extracted document records below. "
-                    "List the exact registration ID, team name, team leader, department, problem statement, and date/schedule if found. "
-                    "Do not cite refinery SOPs unless requested."
+                    "You are KAVACH, a sovereign AI engineering assistant. "
+                    "You have direct access to the attached document(s) below. "
+                    "Read and analyze the document content thoroughly. "
+                    "If the user asks to summarize, explain, or has just attached the file, provide a comprehensive, beautifully structured breakdown:\n"
+                    "- Title, Team/Project Name, & Core Objective\n"
+                    "- Problem Statement & Proposed Solution\n"
+                    "- Technical Architecture, Methodologies, & Technologies\n"
+                    "- Feasibility, Viability, or Key Findings\n"
+                    "If the user asks a specific question, answer directly, accurately, and completely based on the document facts. "
+                    "Do not claim that you cannot read files or PDFs; you already have the extracted contents right below."
                 )
-                user_prompt = f"User Question: {message}\n\nDocument Evidence Found:\n{doc_context}"
+                user_prompt = f"User Request: {message}\n\n{doc_context}"
             else:
                 system_prompt = (
                     "You are KAVACH, a sovereign on-premise AI engineering workbench assistant. "
