@@ -32,7 +32,7 @@ from typing import AsyncIterator, Optional
 import httpx
 from pydantic import BaseModel
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -929,6 +929,60 @@ def create_app() -> FastAPI:
             "extracted_chunks": 1,
         })
 
+    PAGE_IMAGES_CACHE_DIR = Path("data/cache/page_images")
+
+    def _convert_docx_to_pdf_if_needed(target_fpath: Path) -> Optional[Path]:
+        PAGE_IMAGES_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        mtime = int(target_fpath.stat().st_mtime)
+        clean_stem = re.sub(r'[^a-zA-Z0-9_\-]', '_', target_fpath.stem)
+        pdf_cache = PAGE_IMAGES_CACHE_DIR / f"{clean_stem}_m{mtime}.pdf"
+        if pdf_cache.is_file() and pdf_cache.stat().st_size > 500:
+            return pdf_cache
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+            import win32com.client
+            word = win32com.client.DispatchEx("Word.Application")
+            word.Visible = False
+            word.DisplayAlerts = False
+            doc = word.Documents.Open(str(target_fpath.resolve()))
+            doc.SaveAs(str(pdf_cache.resolve()), FileFormat=17)  # 17 = wdFormatPDF
+            doc.Close(False)
+            word.Quit()
+            pythoncom.CoUninitialize()
+            return pdf_cache
+        except Exception as e:
+            log.warning("Word COM conversion to PDF failed for %s: %s", target_fpath.name, e)
+            return None
+
+    def _convert_pptx_to_pdf_if_needed(target_fpath: Path) -> Path | None:
+        PAGE_IMAGES_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        mtime = int(target_fpath.stat().st_mtime)
+        clean_stem = re.sub(r'[^a-zA-Z0-9_\-]', '_', target_fpath.stem)
+        pdf_cache = PAGE_IMAGES_CACHE_DIR / f"{clean_stem}_m{mtime}.pdf"
+        if pdf_cache.is_file() and pdf_cache.stat().st_size > 1000:
+            return pdf_cache
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+            import win32com.client
+            ppt = win32com.client.DispatchEx("PowerPoint.Application")
+            # Open silently without showing a window (WithWindow=False)
+            pres = ppt.Presentations.Open(str(target_fpath.resolve()), ReadOnly=True, Untitled=False, WithWindow=False)
+            pres.SaveAs(str(pdf_cache.resolve()), 32)  # 32 = ppSaveAsPDF
+            pres.Close()
+            ppt.Quit()
+            pythoncom.CoUninitialize()
+            if pdf_cache.is_file() and pdf_cache.stat().st_size > 1000:
+                return pdf_cache
+        except Exception as e:
+            log.warning("PowerPoint COM conversion to PDF failed for %s: %s", target_fpath.name, e)
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
+        return None
+
     _doc_preview_cache: dict[str, dict] = {}
 
     @app.get("/api/documents/preview/{filename:path}")
@@ -966,36 +1020,200 @@ def create_app() -> FastAPI:
             size_bytes = fpath.stat().st_size
             sha256_hash = hashlib.sha256(fpath.read_bytes()).hexdigest()
 
+            def _build_page_meta(raw_txt: str, page_num: int, total_p: int, unit_label: str = "Slide") -> dict:
+                cleaned = raw_txt.replace("\r\n", "\n").strip()
+                lines = [l.strip() for l in cleaned.split("\n") if l.strip()]
+                filtered = [
+                    l for l in lines
+                    if not re.match(r'^(404|the optimistics|optimistics|404\s*-\s*the|slide\s*\d+|page\s*\d+|@sih|link\s*link)', l.lower())
+                    and not re.match(r'^\d+$', l)
+                ]
+
+                title = ""
+                if filtered:
+                    first = filtered[0]
+                    title = first[:65] if len(first) <= 65 else first[:62] + "..."
+                if not title:
+                    title = f"{unit_label} {page_num}"
+
+                key_points = []
+                for l in filtered:
+                    if re.match(r'^[•\-\*–—\d\.]+\s+', l) or (15 <= len(l) <= 160 and not l.isupper() and l != title):
+                        clean_pt = re.sub(r'^[•\-\*–—\d\.]+\s*', '', l).strip()
+                        if len(clean_pt) > 10 and clean_pt not in key_points:
+                            key_points.append(clean_pt)
+                            if len(key_points) >= 4:
+                                break
+                if not key_points and len(filtered) > 1:
+                    key_points = [l[:120] for l in filtered[1:4]]
+
+                words = cleaned.split()
+                w_count = len(words)
+
+                if w_count < 8:
+                    summary = f"Title and introductory overview for '{title}'."
+                elif key_points:
+                    summary = f"Covers {title}: " + "; ".join(key_points[:2]) + "."
+                else:
+                    summary = f"Provides operational details, technical criteria, and findings regarding {title}."
+
+                image_url = None
+                if ext in ["pdf", "docx", "doc", "pptx", "ppt"]:
+                    image_url = f"/api/documents/page-image/{fpath.name}?page={page_num}"
+                elif ext in ["png", "jpg", "jpeg", "webp"]:
+                    image_url = f"/api/documents/download/{fpath.name}"
+
+                return {
+                    "page_number": page_num,
+                    "title": title,
+                    "summary": summary,
+                    "key_points": key_points,
+                    "text": cleaned,
+                    "image_url": image_url,
+                    "word_count": w_count,
+                }
+
             pages_data = []
             raw_text = ""
 
+            doc_aspect = 0.707
             if ext == "pdf":
                 try:
+                    import pypdfium2 as pdfium
+                    pdf_doc = pdfium.PdfDocument(str(fpath))
+                    total_p = len(pdf_doc)
+                    if total_p > 0:
+                        w, h = pdf_doc[0].get_size()
+                        doc_aspect = round(w / h, 3) if h > 0 else 0.707
+                    unit = "Slide" if doc_aspect > 1.05 else "Page"
+
                     import pdfplumber
                     with pdfplumber.open(str(fpath)) as pdf:
                         for i, page in enumerate(pdf.pages):
                             txt = (page.extract_text() or "").strip()
-                            pages_data.append({
-                                "page_number": i + 1,
-                                "text": txt,
-                            })
-                    raw_text = "\n\n---\n\n".join([f"### Slide / Page {p['page_number']}\n\n{p['text']}" for p in pages_data])
+                            pages_data.append(_build_page_meta(txt, i + 1, total_p, unit))
+                    raw_text = "\n\n---\n\n".join([
+                        f"### {p['title']}\n\n**Executive Summary:** {p['summary']}\n\n{p['text']}"
+                        for p in pages_data
+                    ])
                 except Exception as e:
-                    raw_text = f"Error extracting PDF text: {e}"
-            elif ext in ["txt", "md", "csv", "json", "py", "sql", "log", "yaml", "yml", "xml", "html"]:
-                raw_text = fpath.read_text(encoding="utf-8", errors="ignore")
-                pages_data = [{"page_number": 1, "text": raw_text}]
+                    try:
+                        t = fpath.read_text(encoding="utf-8", errors="ignore")
+                        pages_data = [_build_page_meta(t, 1, 1, "Document")]
+                        raw_text = t
+                    except Exception:
+                        raw_text = f"Error extracting PDF text: {e}"
+                        pages_data = [_build_page_meta(raw_text, 1, 1, "Page")]
+            elif ext in ["pptx", "ppt"]:
+                doc_aspect = 1.778
+                pdf_doc = _convert_pptx_to_pdf_if_needed(fpath)
+                if pdf_doc and pdf_doc.is_file():
+                    try:
+                        import pypdfium2 as pdfium
+                        p_doc = pdfium.PdfDocument(str(pdf_doc))
+                        total_p = len(p_doc)
+                        if total_p > 0:
+                            w, h = p_doc[0].get_size()
+                            doc_aspect = round(w / h, 3) if h > 0 else 1.778
+                        import pdfplumber
+                        with pdfplumber.open(str(pdf_doc)) as pdf:
+                            for i, page in enumerate(pdf.pages):
+                                txt = (page.extract_text() or "").strip()
+                                pages_data.append(_build_page_meta(txt, i + 1, total_p, "Slide"))
+                        raw_text = "\n\n---\n\n".join([
+                            f"### Slide {p['page_number']}: {p['title']}\n\n**Executive Summary:** {p['summary']}\n\n{p['text']}"
+                            for p in pages_data
+                        ])
+                    except Exception as e:
+                        log.warning("PDF extraction of converted pptx failed: %s", e)
+
+                if not pages_data:
+                    try:
+                        import zipfile
+                        import xml.etree.ElementTree as ET
+                        with zipfile.ZipFile(str(fpath), "r") as z:
+                            slide_files = [f for f in z.namelist() if f.startswith("ppt/slides/slide") and f.endswith(".xml")]
+                            slide_files.sort(key=lambda x: int(re.search(r"slide(\d+)\.xml", x).group(1)) if re.search(r"slide(\d+)\.xml", x) else 0)
+                            for i, sfile in enumerate(slide_files):
+                                xml_content = z.read(sfile)
+                                root = ET.fromstring(xml_content)
+                                text_nodes = root.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/main}t")
+                                slide_text = "\n".join([node.text.strip() for node in text_nodes if node.text and node.text.strip()])
+                                pages_data.append(_build_page_meta(slide_text, i + 1, len(slide_files), "Slide"))
+                        raw_text = "\n\n---\n\n".join([
+                            f"### Slide {p['page_number']}: {p['title']}\n\n**Executive Summary:** {p['summary']}\n\n{p['text']}"
+                            for p in pages_data
+                        ])
+                    except Exception as e:
+                        raw_text = f"Presentation file: {fpath.name} ({round(size_bytes/1024, 1)} KB)"
+                        pages_data = [_build_page_meta(raw_text, 1, 1, "Slide")]
             elif ext in ["docx", "doc"]:
-                try:
-                    import docx
-                    doc = docx.Document(str(fpath))
-                    paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
-                    raw_text = "\n\n".join(paragraphs)
-                    pages_data = [{"page_number": 1, "text": raw_text}]
-                except Exception as e:
-                    raw_text = f"Word deliverable: {fpath.name} ({round(size_bytes/1024, 1)} KB)"
+                doc_aspect = 0.707
+                pdf_doc = _convert_docx_to_pdf_if_needed(fpath)
+                if pdf_doc and pdf_doc.is_file():
+                    try:
+                        import pypdfium2 as pdfium
+                        p_doc = pdfium.PdfDocument(str(pdf_doc))
+                        total_p = len(p_doc)
+                        if total_p > 0:
+                            w, h = p_doc[0].get_size()
+                            doc_aspect = round(w / h, 3) if h > 0 else 0.707
+                        import pdfplumber
+                        with pdfplumber.open(str(pdf_doc)) as pdf:
+                            for i, page in enumerate(pdf.pages):
+                                txt = (page.extract_text() or "").strip()
+                                pages_data.append(_build_page_meta(txt, i + 1, total_p, "Page"))
+                        raw_text = "\n\n---\n\n".join([
+                            f"### {p['title']}\n\n**Executive Summary:** {p['summary']}\n\n{p['text']}"
+                            for p in pages_data
+                        ])
+                    except Exception as e:
+                        log.warning("PDF extraction of converted docx failed: %s", e)
+
+                if not pages_data:
+                    # Fallback to python-docx paragraph chunking into ~250-word pages
+                    try:
+                        import docx
+                        doc = docx.Document(str(fpath))
+                        pages_list = []
+                        curr_page_paras = []
+                        curr_words = 0
+                        for p in doc.paragraphs:
+                            t = p.text.strip()
+                            if not t:
+                                continue
+                            curr_page_paras.append(t)
+                            curr_words += len(t.split())
+                            if curr_words >= 250:
+                                pages_list.append("\n\n".join(curr_page_paras))
+                                curr_page_paras = []
+                                curr_words = 0
+                        if curr_page_paras:
+                            pages_list.append("\n\n".join(curr_page_paras))
+                        if not pages_list:
+                            pages_list = [f"Document: {fpath.name}"]
+
+                        for i, pg in enumerate(pages_list):
+                            pages_data.append(_build_page_meta(pg, i + 1, len(pages_list), "Page"))
+                        raw_text = "\n\n---\n\n".join([
+                            f"### Page {p['page_number']}: {p['title']}\n\n**Executive Summary:** {p['summary']}\n\n{p['text']}"
+                            for p in pages_data
+                        ])
+                    except Exception as e:
+                        raw_text = f"Word deliverable: {fpath.name} ({round(size_bytes/1024, 1)} KB)"
+                        pages_data = [_build_page_meta(raw_text, 1, 1, "Page")]
+            elif ext in ["txt", "md", "csv", "json", "py", "sql", "log", "yaml", "yml", "xml", "html"]:
+                full_txt = fpath.read_text(encoding="utf-8", errors="ignore")
+                raw_text = full_txt
+                if ext == "md" and "## " in full_txt:
+                    parts = [p.strip() for p in re.split(r'\n(?=##? )', full_txt) if p.strip()]
+                    for i, pt in enumerate(parts):
+                        pages_data.append(_build_page_meta(pt, i + 1, len(parts), "Section"))
+                else:
+                    pages_data = [_build_page_meta(full_txt, 1, 1, "Document")]
             else:
                 raw_text = f"Document: {fpath.name} ({round(size_bytes/1024, 1)} KB)"
+                pages_data = [_build_page_meta(raw_text, 1, 1, "Document")]
 
             return {
                 "filename": fpath.name,
@@ -1003,6 +1221,7 @@ def create_app() -> FastAPI:
                 "file_size_bytes": size_bytes,
                 "sha256": sha256_hash,
                 "total_pages": len(pages_data),
+                "aspect_ratio": doc_aspect,
                 "pages": pages_data,
                 "content": raw_text,
                 "download_url": f"/api/documents/download/{fpath.name}",
@@ -1041,6 +1260,94 @@ def create_app() -> FastAPI:
             filename=fpath.name,
             media_type="application/octet-stream"
         )
+
+    PAGE_IMAGES_CACHE_DIR = Path("data/cache/page_images")
+    _page_render_semaphore = asyncio.Semaphore(4)
+
+    @app.get("/api/documents/page-image/{filename:path}")
+    async def get_document_page_image(filename: str, page: int = Query(1, ge=1)):
+        PAGE_IMAGES_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        inbox_dir = Path("data/inbox")
+        fpath = inbox_dir / filename
+        if not fpath.is_file():
+            dl_path = Path.home() / "Downloads" / filename
+            if dl_path.is_file():
+                fpath = dl_path
+        if not fpath.is_file():
+            art_path = Path("artifacts") / filename
+            if art_path.is_file():
+                fpath = art_path
+        if not fpath.is_file():
+            fname_lower = filename.lower()
+            matches = [f for f in inbox_dir.glob("*") if f.is_file() and fname_lower in f.name.lower()]
+            if matches:
+                fpath = matches[0]
+            else:
+                matches_art = [f for f in Path("artifacts").glob("*") if f.is_file() and fname_lower in f.name.lower()]
+                if matches_art:
+                    fpath = matches_art[0]
+
+        if not fpath.is_file():
+            raise HTTPException(status_code=404, detail=f"Document '{filename}' not found.")
+
+        ext = fpath.suffix.lower().lstrip(".")
+        if ext in ["png", "jpg", "jpeg", "webp", "gif"]:
+            return FileResponse(fpath, media_type=f"image/{ext if ext != 'jpg' else 'jpeg'}")
+
+        if ext not in ["pdf", "docx", "doc", "pptx", "ppt"]:
+            raise HTTPException(status_code=400, detail="Page image rendering currently supported for PDF, Word documents, PowerPoint presentations, and image formats.")
+
+        mtime = int(fpath.stat().st_mtime)
+        clean_stem = re.sub(r'[^a-zA-Z0-9_\-]', '_', fpath.stem)
+        cache_file = PAGE_IMAGES_CACHE_DIR / f"{clean_stem}_m{mtime}_p{page}_v3.png"
+        if cache_file.is_file() and cache_file.stat().st_size > 1000:
+            return FileResponse(cache_file, media_type="image/png")
+
+        async with _page_render_semaphore:
+            if cache_file.is_file() and cache_file.stat().st_size > 1000:
+                return FileResponse(cache_file, media_type="image/png")
+
+            def _render_page():
+                pdf_target = fpath
+                if ext in ["docx", "doc"]:
+                    conv_pdf = _convert_docx_to_pdf_if_needed(fpath)
+                    if conv_pdf and conv_pdf.is_file():
+                        pdf_target = conv_pdf
+                    else:
+                        raise HTTPException(status_code=500, detail="Unable to convert Word document to PDF for image rendering")
+                elif ext in ["pptx", "ppt"]:
+                    conv_pdf = _convert_pptx_to_pdf_if_needed(fpath)
+                    if conv_pdf and conv_pdf.is_file():
+                        pdf_target = conv_pdf
+                    else:
+                        raise HTTPException(status_code=500, detail="Unable to convert PowerPoint presentation to PDF for image rendering")
+
+                rendered = False
+                try:
+                    import pypdfium2 as pdfium
+                    doc = pdfium.PdfDocument(str(pdf_target))
+                    if page < 1 or page > len(doc):
+                        raise HTTPException(status_code=400, detail=f"Page {page} out of range (1..{len(doc)})")
+                    p = doc[page - 1]
+                    # scale=2.0 renders crisp 144 DPI image with full font hinting and zero blank artifacts
+                    im = p.render(scale=2.0).to_pil()
+                    im.save(str(cache_file), format="PNG")
+                    rendered = True
+                except Exception as e:
+                    log.warning("pypdfium2 render failed for %s p%d: %s. Falling back to pdfplumber.", pdf_target.name, page, e)
+
+                if not rendered:
+                    import pdfplumber
+                    with pdfplumber.open(str(pdf_target)) as pdf:
+                        if page < 1 or page > len(pdf.pages):
+                            raise HTTPException(status_code=400, detail=f"Page {page} out of range (1..{len(pdf.pages)})")
+                        p = pdf.pages[page - 1]
+                        im = p.to_image(resolution=150)
+                        im.save(str(cache_file), format="PNG")
+
+            await asyncio.to_thread(_render_page)
+
+        return FileResponse(cache_file, media_type="image/png")
 
     @app.get("/artifacts")
     async def list_artifacts():
@@ -1121,20 +1428,26 @@ def create_app() -> FastAPI:
                     if prev_att and prev_att not in all_att_files:
                         all_att_files.append(prev_att)
 
-        if not all_att_files and any(k in message.lower() for k in ["document", "pdf", "file", "in this", "in that", "table", "slide", "presentation", "deck", "ppt"]):
-            all_att_files = [f.name for f in inbox_dir.glob("*.pdf")]
+        # Only search inbox if user explicitly mentioned a specific file by its filename
+        if not all_att_files:
+            msg_lower = message.lower()
+            for f in inbox_dir.glob("*.*"):
+                clean_stem = f.stem.lower()
+                if len(clean_stem) >= 4 and clean_stem in msg_lower:
+                    all_att_files.append(f.name)
+                    break
 
         # 2. Check if user is asking to summarize, give an overview, or just attached a document
         SUMMARY_KEYWORDS = {
             "summarize", "summary", "overview", "explain", "about", "gist", "what is this",
             "tell me about", "key points", "highlights", "takeaways", "read", "review",
-            "attached", "check", "slides", "deck", "presentation", "details", "content"
+            "attached", "check", "slides", "deck", "presentation", "details", "content", "what does this"
         }
         msg_lower = message.lower()
         is_summary_request = (
             any(k in msg_lower for k in SUMMARY_KEYWORDS)
             or len(message.strip().split()) <= 4
-            or any(p in msg_lower for p in ["pdf is attached", "file is attached", "check this", "see this", "read this", "here is the", "pdf attached"])
+            or any(p in msg_lower for p in ["pdf is attached", "file is attached", "check this", "see this", "read this", "here is the", "pdf attached", "document says", "what does this document"])
         )
 
         STOP_WORDS = {
@@ -1190,6 +1503,44 @@ def create_app() -> FastAPI:
                                 extracted_docs.append(f"=== DOCUMENT: {fname} ===\n" + "\n\n".join(fallback_pages))
                 except Exception as e:
                     log.warning("PDF extraction failed for %s: %s", fname, e)
+            elif fpath.suffix.lower() in [".docx", ".doc"]:
+                try:
+                    import docx
+                    doc = docx.Document(str(fpath))
+                    paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+                    table_rows = []
+                    for t in doc.tables:
+                        for row in t.rows:
+                            r_txt = " | ".join([c.text.strip() for c in row.cells if c.text.strip()])
+                            if r_txt and r_txt not in table_rows:
+                                table_rows.append(r_txt)
+
+                    full_content = "\n\n".join(paragraphs)
+                    if table_rows:
+                        full_content += "\n\n=== TABULAR DATA / SPECIFICATIONS ===\n" + "\n".join(table_rows[:25])
+
+                    extracted_docs.append(
+                        f"=== DOCUMENT: {fname} (Word Document — {len(paragraphs)} Paragraphs, {len(doc.tables)} Tables) ===\n"
+                        + full_content[:8500]
+                    )
+                except Exception as e:
+                    log.warning("DOCX extraction failed for %s: %s", fname, e)
+            elif fpath.suffix.lower() in [".pptx", ".ppt"]:
+                try:
+                    import zipfile, xml.etree.ElementTree as ET
+                    with zipfile.ZipFile(str(fpath), "r") as z:
+                        slide_files = [f for f in z.namelist() if f.startswith("ppt/slides/slide") and f.endswith(".xml")]
+                        slide_files.sort(key=lambda x: int(re.search(r"slide(\d+)\.xml", x).group(1)) if re.search(r"slide(\d+)\.xml", x) else 0)
+                        texts = []
+                        for i, sfile in enumerate(slide_files):
+                            root = ET.fromstring(z.read(sfile))
+                            t_nodes = root.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/main}t")
+                            st = " ".join([n.text.strip() for n in t_nodes if n.text and n.text.strip()])
+                            if st:
+                                texts.append(f"[Slide {i+1}] {st}")
+                        extracted_docs.append(f"=== DOCUMENT: {fname} (Presentation - {len(slide_files)} Slides) ===\n" + "\n\n".join(texts[:15]))
+                except Exception as e:
+                    log.warning("PPTX extraction failed for %s: %s", fname, e)
             elif fpath.suffix.lower() in [".txt", ".md", ".csv", ".json", ".log"]:
                 try:
                     txt = fpath.read_text(encoding="utf-8", errors="ignore")
@@ -1210,18 +1561,14 @@ def create_app() -> FastAPI:
 
             if doc_context:
                 system_prompt = (
-                    "You are KAVACH, a sovereign AI engineering assistant. "
-                    "You have direct access to the attached document(s) below. "
-                    "Read and analyze the document content thoroughly. "
-                    "If the user asks to summarize, explain, or has just attached the file, provide a comprehensive, beautifully structured breakdown:\n"
-                    "- Title, Team/Project Name, & Core Objective\n"
-                    "- Problem Statement & Proposed Solution\n"
-                    "- Technical Architecture, Methodologies, & Technologies\n"
-                    "- Feasibility, Viability, or Key Findings\n"
-                    "If the user asks a specific question, answer directly, accurately, and completely based on the document facts. "
-                    "Do not claim that you cannot read files or PDFs; you already have the extracted contents right below."
+                    "You are KAVACH, an elite sovereign AI assistant with deep technical, engineering, and scientific capabilities.\n"
+                    "Document context is provided below for your reference.\n"
+                    "Guidelines:\n"
+                    "1. Document Queries: When the user asks about the document (summarizing, team details, features, findings, etc.), extract and answer accurately from the document. Adapt headings logically to the document type (e.g. Title & Team/Authors, Problem Statement, Solution Architecture, Key Features/Methodology, Outcomes). Never invent fictional game or algorithm headings if they are not in the document.\n"
+                    "2. General Knowledge Queries: If the user asks a general conceptual, tech, or science question (e.g. 'how does a mobile phone work?', 'explain neural networks', 'what is RAM?'), answer their question directly, thoroughly, and clearly using your general intelligence. Do NOT refuse or state that the document does not mention it.\n"
+                    "3. Style: Format with clean, structured markdown. Never repeat bullet points or phrases in repetitive loops."
                 )
-                user_prompt = f"User Request: {message}\n\n{doc_context}"
+                user_prompt = f"User Request: {message}\n\n[Document Context]\n{doc_context}"
             else:
                 system_prompt = (
                     "You are KAVACH, a sovereign on-premise AI engineering workbench assistant. "

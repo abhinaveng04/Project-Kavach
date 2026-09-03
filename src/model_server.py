@@ -103,8 +103,10 @@ async def chat_completions(req: ChatCompletionRequest):
     try:
         res = llm.create_chat_completion(
             messages=messages,
-            temperature=req.temperature or 0.2,
-            max_tokens=req.max_tokens or 512,
+            temperature=req.temperature or 0.3,
+            max_tokens=req.max_tokens or 1024,
+            repeat_penalty=1.15,
+            frequency_penalty=0.08,
         )
         return JSONResponse(res)
     except Exception as e:

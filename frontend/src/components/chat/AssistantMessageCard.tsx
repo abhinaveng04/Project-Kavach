@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -15,6 +15,73 @@ import { ToolExecutionCard } from './ToolExecutionCard';
 import { CitationChip } from './CitationChip';
 import { HITLApprovalCard } from './HITLApprovalCard';
 import { MarkdownRenderer } from './MarkdownRenderer';
+
+const DYNAMIC_THINKING_PHRASES = [
+  'Brewing...',
+  'Pondering...',
+  'Cogitating...',
+  'Synthesizing verified findings...',
+  'Deliberating...',
+  'Ruminating...',
+  'Formulating response...',
+  'Contemplating...',
+  'Connecting dots...',
+  'Distilling insights...',
+  'Analyzing context...',
+  'Deciphering nuances...',
+  'Brainstorming...',
+  'Evaluating findings...',
+  'Reasoning through constraints...',
+  'Piecing it together...',
+];
+
+const ThinkingStateIndicator: React.FC = () => {
+  // Random phrase on every new message mount
+  const [index, setIndex] = useState(() =>
+    Math.floor(Math.random() * DYNAMIC_THINKING_PHRASES.length)
+  );
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIndex((prev) => {
+          let next: number;
+          do {
+            next = Math.floor(Math.random() * DYNAMIC_THINKING_PHRASES.length);
+          } while (next === prev && DYNAMIC_THINKING_PHRASES.length > 1);
+          return next;
+        });
+        setFade(true);
+      }, 200);
+    }, 4000); // Transitions every 4 seconds
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="space-y-3 py-2 animate-fade-in select-none">
+      <div className="flex items-center gap-2 text-xs font-medium">
+        <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+        <span
+          className={`shimmer-wave-text font-semibold transition-all duration-300 ${
+            fade ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
+          }`}
+        >
+          {DYNAMIC_THINKING_PHRASES[index]}
+        </span>
+      </div>
+
+      {/* Shimmering horizontal skeleton wave bars */}
+      <div className="space-y-2 max-w-md pt-1">
+        <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-full" />
+        <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-4/5" />
+        <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-3/5" />
+      </div>
+    </div>
+  );
+};
 
 interface AssistantMessageCardProps {
   message: ChatMessage;
@@ -97,22 +164,7 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
               />
             </div>
           ) : isStreaming ? (
-            /* Multi-Color Gradient Pulse & Shimmer Wave (Blue, Violet, Coral) */
-            <div className="space-y-3 py-2 animate-fade-in">
-              <div className="flex items-center gap-2 text-xs font-medium">
-                <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
-                <span className="shimmer-wave-text font-semibold">
-                  Synthesizing verified findings...
-                </span>
-              </div>
-
-              {/* Shimmering horizontal skeleton wave bars */}
-              <div className="space-y-2 max-w-md pt-1">
-                <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-full" />
-                <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-4/5" />
-                <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-3/5" />
-              </div>
-            </div>
+            <ThinkingStateIndicator />
           ) : null}
         </div>
 

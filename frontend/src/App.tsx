@@ -509,6 +509,8 @@ export function App() {
         requires_approval: false,
         download_url: doc.download_url || `/api/documents/download/${encodeURIComponent(filename)}`,
         content: doc.content || '',
+        pages_data: doc.pages || [],
+        aspect_ratio: doc.aspect_ratio || 0.707,
       };
       setSelectedArtifact(docArtifact);
     } catch (err) {

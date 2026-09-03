@@ -83,6 +83,28 @@ export interface CitationItem {
   snippet: string;
 }
 
+export interface DocumentPageData {
+  page_number: number;
+  title?: string;
+  summary?: string;
+  key_points?: string[];
+  text: string;
+  image_url?: string | null;
+  word_count?: number;
+}
+
+export interface DocumentPreviewResponse {
+  filename: string;
+  file_type: string;
+  file_size_bytes: number;
+  sha256: string;
+  total_pages: number;
+  aspect_ratio?: number;
+  pages: DocumentPageData[];
+  content: string;
+  download_url: string;
+}
+
 export interface ArtifactResponse {
   artifact_id: string;
   filename: string;
@@ -94,6 +116,8 @@ export interface ArtifactResponse {
   requires_approval: boolean;
   download_url: string;
   content?: string;
+  pages_data?: DocumentPageData[];
+  aspect_ratio?: number;
 }
 
 export interface PendingApproval {
