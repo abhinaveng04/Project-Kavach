@@ -88,18 +88,13 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
         {/* 5. Natural Markdown Prose Stream & Typing Effect */}
         <div className="text-[15px] chat-prose-text leading-[1.75] font-sans prose-chat">
           {message.content ? (
-            <div>
+            <div className="relative">
               <MarkdownRenderer
                 content={message.content}
                 citations={message.citations}
                 onInspectCitation={onInspectCitation}
+                isStreaming={isStreaming}
               />
-              {isStreaming && (
-                <span
-                  className="inline-block w-1.5 h-4 ml-1 bg-purple-400 rounded-sm animate-typing-cursor align-middle shadow-[0_0_8px_rgba(168,85,247,0.8)]"
-                  title="Generating response..."
-                />
-              )}
             </div>
           ) : isStreaming ? (
             /* Multi-Color Gradient Pulse & Shimmer Wave (Blue, Violet, Coral) */

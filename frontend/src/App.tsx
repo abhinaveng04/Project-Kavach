@@ -337,24 +337,56 @@ export function App() {
         return updated;
       });
 
-      // Update assistant message with final verified backend payload
+      // 1. Update metadata first while keeping isStreaming = true for typing animation
+      const fullText = resp.final_response || '';
       setMessages((prev) => {
         const lastIdx = prev.findIndex((m) => m.id === assistantMessageId);
         if (lastIdx === -1) return prev;
 
         const updated: ChatMessage = {
           ...prev[lastIdx],
-          content: resp.final_response,
           taskType: resp.task_type,
           citations: resp.citations,
           artifacts: resp.artifacts,
           pendingApprovals: resp.pending_approvals,
           verificationPassed: resp.verification_passed,
           executionTimeMs: resp.execution_time_ms,
-          isStreaming: false,
+          isStreaming: true,
         };
 
         return [...prev.slice(0, lastIdx), updated];
+      });
+
+      // 2. Smooth adaptive typewriter animation (supports live streaming code blocks)
+      const totalLen = fullText.length;
+      const chunkSize = totalLen > 1500 ? 12 : totalLen > 600 ? 6 : totalLen > 200 ? 3 : 2;
+      const stepDelay = totalLen > 1500 ? 12 : totalLen > 600 ? 16 : 20;
+
+      let currentPos = 0;
+      await new Promise<void>((resolve) => {
+        const timer = setInterval(() => {
+          currentPos = Math.min(totalLen, currentPos + chunkSize);
+          const currentSlice = fullText.slice(0, currentPos);
+          const isDone = currentPos >= totalLen;
+
+          setMessages((prev) => {
+            const lastIdx = prev.findIndex((m) => m.id === assistantMessageId);
+            if (lastIdx === -1) return prev;
+            return [
+              ...prev.slice(0, lastIdx),
+              {
+                ...prev[lastIdx],
+                content: currentSlice,
+                isStreaming: !isDone,
+              },
+            ];
+          });
+
+          if (isDone) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, stepDelay);
       });
 
       if (resp.artifacts && resp.artifacts.length > 0) {

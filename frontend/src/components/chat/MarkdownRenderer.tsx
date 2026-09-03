@@ -7,12 +7,14 @@ interface MarkdownRendererProps {
   content: string;
   citations?: CitationItem[];
   onInspectCitation?: (citation: CitationItem) => void;
+  isStreaming?: boolean;
 }
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   citations = [],
   onInspectCitation,
+  isStreaming = false,
 }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
@@ -94,6 +96,46 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     });
 
     flushTextBuffer();
+
+    // If text ended while inside an unclosed code block (e.g. streaming code)
+    if (inCodeBlock) {
+      const fullCode = codeBuffer.join('\n');
+      const currentIdx = codeBlockCount++;
+      blocks.push(
+        <div
+          key={`code-streaming-${currentIdx}`}
+          className="my-4 rounded-2xl overflow-hidden border border-purple-500/30 bg-[#1e1e20] shadow-md animate-fade-in"
+        >
+          <div className="flex items-center justify-between px-4 py-2 bg-[#27272a] border-b border-white/[0.06] text-xs font-mono">
+            <span className="flex items-center gap-2 text-zinc-300 font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              <span>{codeLanguage || 'code'}</span>
+              {isStreaming && (
+                <span className="text-[10px] text-purple-400 font-normal bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20 animate-pulse">
+                  writing code...
+                </span>
+              )}
+            </span>
+          </div>
+          <pre className="p-4 text-xs font-mono text-zinc-200 overflow-x-auto leading-relaxed whitespace-pre bg-[#18181b]">
+            {fullCode}
+            {isStreaming && (
+              <span className="inline-block w-2 h-4 ml-0.5 bg-emerald-400 rounded-sm animate-typing-cursor align-middle shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+            )}
+          </pre>
+        </div>
+      );
+    } else if (isStreaming && blocks.length > 0) {
+      // If streaming in prose, place the cursor inline at the end
+      blocks.push(
+        <span
+          key="streaming-cursor"
+          className="inline-block w-2 h-4.5 ml-1 bg-purple-400 rounded-sm animate-typing-cursor align-middle shadow-[0_0_8px_rgba(168,85,247,0.8)]"
+          title="Typing..."
+        />
+      );
+    }
+
     return blocks;
   };
 
