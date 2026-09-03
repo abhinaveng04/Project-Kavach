@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -115,39 +116,48 @@ def get_finalizer_llm():
 
 
 def polish_response(raw_output: str) -> str:
-    """Uses the fast Finalizer model (Qwen3-0.6B) to structure, clean and polish raw CEO drafts."""
+    """Uses the fast Finalizer model (Qwen3-0.6B) to structure, clean and polish raw CEO drafts when needed."""
     if not raw_output or len(raw_output.strip()) < 30:
         return raw_output
 
+    # Fast-path: If the draft does not contain unresolved placeholders like [Insert ...] or [List ...],
+    # and has complete content, return immediately with 0 latency overhead.
+    PLACEHOLDER_RE = re.compile(r"\[(?:Insert|List|Add|Your|Date|Team|Name|Details|TBD)[^\]]*\]", re.IGNORECASE)
+    has_placeholders = bool(PLACEHOLDER_RE.search(raw_output))
+    if not has_placeholders:
+        return raw_output
+
+    # Strip obvious placeholders via deterministic regex first
+    cleaned_output = PLACEHOLDER_RE.sub("", raw_output)
+
     fin_llm = get_finalizer_llm()
     if fin_llm is None:
-        return raw_output
+        return cleaned_output
 
     think_match = re.search(r"<(?:think|thought)>(.*?)</(?:think|thought)>", raw_output, re.DOTALL | re.IGNORECASE)
     thought_part = ""
-    draft_part = raw_output
+    draft_part = cleaned_output
     if think_match:
         thought_part = think_match.group(1).strip()
-        draft_part = re.sub(r"<(?:think|thought)>.*?</(?:think|thought)>\s*", "", raw_output, flags=re.DOTALL | re.IGNORECASE).strip()
+        draft_part = re.sub(r"<(?:think|thought)>.*?</(?:think|thought)>\s*", "", cleaned_output, flags=re.DOTALL | re.IGNORECASE).strip()
 
     if not draft_part or len(draft_part) < 25:
-        return raw_output
+        return cleaned_output
 
     try:
         fin_prompt = (
-            "You are the Executive Finalizer & Output Editor. "
-            "Refine, polish, and structure the draft response into a professional, cohesive markdown answer. "
-            "Remove any placeholder brackets like [Insert ...] or [List ...]. "
-            "Ensure clear headings, clean bullet points, proper tables, and readable code blocks. "
-            "Do NOT remove substantive code or technical facts; polish and structure the presentation. "
-            "Output ONLY the final polished answer without meta-commentary."
+            "You are the Executive Output Editor. "
+            "Refine and structure the draft response into a professional markdown answer. "
+            "Ensure clear headings and clean bullet points. "
+            "Do NOT remove substantive code or technical facts. "
+            "Output ONLY the final polished answer without meta-commentary or thinking tags."
         )
         fin_res = fin_llm.create_chat_completion(
             messages=[
                 {"role": "system", "content": fin_prompt},
                 {"role": "user", "content": f"Draft to polish and structure:\n{draft_part}"},
             ],
-            max_tokens=1536,
+            max_tokens=768,
             temperature=0.1,
         )
         polished = fin_res["choices"][0]["message"]["content"].strip()
@@ -157,9 +167,9 @@ def polish_response(raw_output: str) -> str:
                 return f"<think>\n{thought_part}\n</think>\n\n{polished}"
             return polished
     except Exception as fe:
-        log.warning("Finalizer polish pass failed (%s), using raw draft.", fe)
+        log.warning("Finalizer polish pass failed (%s), using cleaned draft.", fe)
 
-    return raw_output
+    return cleaned_output
 
 
 _embed_llm = None

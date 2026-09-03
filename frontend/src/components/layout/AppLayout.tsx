@@ -236,6 +236,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             <IdleWorkbench
               onSelectPrompt={(p) => onSendMessage(p, attachedFiles)}
               onOpenUpload={() => setIngestionModalOpen(true)}
+              onAddAttachment={handleAddAttachment}
             />
           ) : (
             <ChatContainer

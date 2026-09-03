@@ -1,40 +1,223 @@
-import React, { useState } from 'react';
-import { Sparkles, FileText, Calculator, ShieldCheck, UploadCloud, Terminal, Eye } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Sparkles,
+  FileText,
+  Calculator,
+  ShieldCheck,
+  UploadCloud,
+  Terminal,
+  Eye,
+  RotateCw,
+  Loader2,
+  CheckCircle2,
+} from 'lucide-react';
+import { api } from '../../api/client';
 
 interface IdleWorkbenchProps {
   onSelectPrompt: (prompt: string) => void;
   onOpenUpload: () => void;
+  onAddAttachment?: (filename: string) => void;
 }
 
-export const IdleWorkbench: React.FC<IdleWorkbenchProps> = ({ onSelectPrompt, onOpenUpload }) => {
-  const [isCollapsing, setIsCollapsing] = useState(false);
+const ALL_SUGGESTIONS = [
+  // 1. Refinery Operations & Corrosion
+  {
+    title: 'Corrosion Trend Memo',
+    prompt: 'Draft the Q3 corrosion-trend memo for Unit 200, cite the inspection SOP.',
+    icon: FileText,
+    subtitle: 'Executive deliverable with SOP citations',
+    category: 'Refinery Operations',
+  },
+  {
+    title: 'Heat Exchanger Fouling Rate',
+    prompt: 'Calculate the fouling factor and thermal efficiency decline for Heat Exchanger E-102.',
+    icon: Calculator,
+    subtitle: 'Thermal efficiency & fouling resistance',
+    category: 'Refinery Operations',
+  },
+  {
+    title: 'Pipeline Pressure Drop',
+    prompt: 'Estimate the pressure drop per 100 meters for 12-inch crude transfer line using Darcy-Weisbach.',
+    icon: Terminal,
+    subtitle: 'Fluid mechanics & friction factor calculation',
+    category: 'Refinery Operations',
+  },
+  {
+    title: 'Distillation Column Upset',
+    prompt: 'Outline troubleshooting steps for top pressure surges in the Atmospheric Distillation Unit (CDU).',
+    icon: ShieldCheck,
+    subtitle: 'Process upset diagnostics & emergency mitigation',
+    category: 'Refinery Operations',
+  },
+  {
+    title: 'Centrifugal Pump Cavitation',
+    prompt: 'Diagnose NPSH margin and possible cavitation causes for feed pump P-201A.',
+    icon: Calculator,
+    subtitle: 'NPSHa vs NPSHr pump reliability check',
+    category: 'Refinery Operations',
+  },
 
-  const suggestions = [
-    {
-      title: 'Corrosion Trend Memo',
-      prompt: 'Draft the Q3 corrosion-trend memo for Unit 200, cite the inspection SOP.',
-      icon: FileText,
-      subtitle: 'Executive deliverable with SOP citations',
-    },
-    {
-      title: 'P&ID Vision Tag OCR',
-      prompt: 'Inspect P&ID tag V-204 and check safe operating pressure limits.',
-      icon: Eye,
-      subtitle: 'Visual equipment extraction & limits check',
-    },
-    {
-      title: 'Python Deterministic Math',
-      prompt: 'Calculate 125 * 48 using Python sandbox.',
-      icon: Calculator,
-      subtitle: 'Deterministic sandbox execution',
-    },
-    {
-      title: 'Inspection Gate Verification',
-      prompt: 'Verify corrosion rate calculation formulas according to inspection SOP §4.2.',
-      icon: Terminal,
-      subtitle: 'RAG verification against standard SOP',
-    },
-  ];
+  // 2. Coding, Algorithms & Python Sandbox
+  {
+    title: 'Reverse a Linked List',
+    prompt: 'Implement an in-place singly linked list reversal with clean Big-O analysis.',
+    icon: Terminal,
+    subtitle: 'Pointer manipulation with O(1) space complexity',
+    category: 'Coding & Algorithms',
+  },
+  {
+    title: 'LRU Cache Implementation',
+    prompt: 'Write an optimal LRU Cache class in Python using a doubly linked list and hash map.',
+    icon: Calculator,
+    subtitle: 'O(1) get & put cache data structure',
+    category: 'Coding & Algorithms',
+  },
+  {
+    title: 'Binary Search in Rotated Array',
+    prompt: 'Write an error-free binary search for a rotated sorted array in Python.',
+    icon: Terminal,
+    subtitle: 'O(log n) boundary search algorithm',
+    category: 'Coding & Algorithms',
+  },
+  {
+    title: 'Sensor Statistical Analysis',
+    prompt: 'Calculate standard deviation and 95% confidence interval for pressure sensor logs in Python.',
+    icon: Calculator,
+    subtitle: 'Statistical uncertainty & telemetry processing',
+    category: 'Coding & Algorithms',
+  },
+  {
+    title: 'Memory-Efficient Log Parser',
+    prompt: 'Write a memory-efficient generator to parse 500MB JSON log dumps locally.',
+    icon: Terminal,
+    subtitle: 'Streaming generator for sovereign audit logs',
+    category: 'Coding & Algorithms',
+  },
+
+  // 3. SOP Compliance & Safety Standards
+  {
+    title: 'Inspection Gate Verification',
+    prompt: 'Verify corrosion rate calculation formulas according to inspection SOP §4.2.',
+    icon: FileText,
+    subtitle: 'RAG verification against standard SOP clauses',
+    category: 'SOP Compliance',
+  },
+  {
+    title: 'OISD-112 Flare Safety Audit',
+    prompt: 'Summarize mandatory safety interlocks for flare knockout drums under OISD-STD-112.',
+    icon: ShieldCheck,
+    subtitle: 'Regulatory refinery flare system standards',
+    category: 'SOP Compliance',
+  },
+  {
+    title: 'HAZOP Deviation Study',
+    prompt: 'Perform a HAZOP study for "High Pressure" node on the hydrotreater reactor inlet.',
+    icon: ShieldCheck,
+    subtitle: 'Cause, consequence & safeguarding matrix',
+    category: 'SOP Compliance',
+  },
+  {
+    title: 'LOTO Isolation Checklist',
+    prompt: 'Generate an OSHA/OISD compliant LOTO procedure for pump impeller maintenance.',
+    icon: FileText,
+    subtitle: 'Energy isolation & lockout/tagout steps',
+    category: 'SOP Compliance',
+  },
+  {
+    title: 'Hot Work Permit Criteria',
+    prompt: 'List atmospheric testing criteria required before issuing a Hot Work Permit in tank farm areas.',
+    icon: ShieldCheck,
+    subtitle: 'LEL, O2 & toxic gas permissible limits',
+    category: 'SOP Compliance',
+  },
+
+  // 4. Multimodal Vision & Diagram Analysis
+  {
+    title: 'P&ID Vision Tag OCR',
+    prompt: 'Inspect P&ID tag V-204 and check safe operating pressure limits.',
+    icon: Eye,
+    subtitle: 'Visual equipment extraction & limits check',
+    category: 'Vision & Diagrams',
+  },
+  {
+    title: 'Equipment Nameplate Specs',
+    prompt: 'Extract design pressure, temperature rating, and metallurgy from an equipment vessel nameplate.',
+    icon: Eye,
+    subtitle: 'Vessel metallurgy & MAWP extraction',
+    category: 'Vision & Diagrams',
+  },
+  {
+    title: 'P&ID Valve Lineup Trace',
+    prompt: 'Trace bypass piping and valve positions around control valve FV-101 in a refinery schematic.',
+    icon: Eye,
+    subtitle: 'P&ID flow routing & isolation identification',
+    category: 'Vision & Diagrams',
+  },
+  {
+    title: 'Slide Presentation Synthesis',
+    prompt: 'Extract the technical problem statement and proposed architecture from presentation slides.',
+    icon: FileText,
+    subtitle: 'Multi-slide presentation OCR synthesis',
+    category: 'Vision & Diagrams',
+  },
+
+  // 5. Sovereign Security & Data Provenance
+  {
+    title: 'Air-Gap Socket Verification',
+    prompt: 'Run a localhost socket audit and confirm zero network egress across active model processes.',
+    icon: ShieldCheck,
+    subtitle: 'Loopback 127.0.0.1 isolation attestation',
+    category: 'Security & Provenance',
+  },
+  {
+    title: 'Tamper-Evident SHA Ledger',
+    prompt: 'Verify cryptographic checksums for recently generated inspection deliverables.',
+    icon: Terminal,
+    subtitle: 'SHA-256 provenance & chain-of-custody check',
+    category: 'Security & Provenance',
+  },
+];
+
+export const IdleWorkbench: React.FC<IdleWorkbenchProps> = ({
+  onSelectPrompt,
+  onOpenUpload,
+  onAddAttachment,
+}) => {
+  const [isCollapsing, setIsCollapsing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to pick 4 distinct suggestions across diverse categories
+  const pickRandomSuggestions = useCallback(() => {
+    const shuffled = [...ALL_SUGGESTIONS].sort(() => 0.5 - Math.random());
+    // Try to ensure variety of categories
+    const selected: typeof ALL_SUGGESTIONS = [];
+    const usedCategories = new Set<string>();
+
+    for (const item of shuffled) {
+      if (!usedCategories.has(item.category) && selected.length < 4) {
+        selected.push(item);
+        usedCategories.add(item.category);
+      }
+    }
+
+    // Fill remaining if needed
+    for (const item of shuffled) {
+      if (selected.length < 4 && !selected.some((s) => s.title === item.title)) {
+        selected.push(item);
+      }
+    }
+
+    return selected;
+  }, []);
+
+  const [suggestions, setSuggestions] = useState(pickRandomSuggestions);
+
+  const handleShuffle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSuggestions(pickRandomSuggestions());
+  };
 
   const handleCardClick = (promptText: string) => {
     setIsCollapsing(true);
@@ -43,12 +226,44 @@ export const IdleWorkbench: React.FC<IdleWorkbenchProps> = ({ onSelectPrompt, on
     }, 220);
   };
 
+  const handleDirectUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setIsUploading(true);
+      setUploadedFile(null);
+      try {
+        const res = await api.uploadFile(file);
+        setUploadedFile(res.filename);
+        if (onAddAttachment) {
+          onAddAttachment(res.filename);
+        }
+      } catch (err) {
+        console.error('Direct file upload failed:', err);
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
   return (
     <div
       className={`flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto text-center select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         isCollapsing ? 'animate-collapse-up pointer-events-none' : 'animate-fade-in'
       }`}
     >
+      {/* Hidden File Input for Direct Native OS Dialog */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        onChange={handleFileChange}
+        className="hidden"
+        accept=".pdf,.docx,.xlsx,.csv,.txt,.json,.png,.jpg,.jpeg,.pptx"
+      />
+
       {/* 4-Point Neural Sparkle Icon */}
       <div className="relative mb-6">
         <div className="w-12 h-12 rounded-2xl bg-[#2f2f2f] border border-white/[0.12] flex items-center justify-center shadow-xl">
@@ -59,11 +274,26 @@ export const IdleWorkbench: React.FC<IdleWorkbenchProps> = ({ onSelectPrompt, on
       <h2 className="text-2xl font-semibold tracking-tight text-white mb-2">
         What are we engineering today?
       </h2>
-      <p className="text-sm text-zinc-400 max-w-md mb-8 leading-relaxed">
+      <p className="text-sm text-zinc-400 max-w-md mb-6 leading-relaxed">
         Sovereign, air-gapped agentic intelligence for industrial and refinery engineering. All execution is 100% on-premise.
       </p>
 
-      {/* Suggestion Cards Grid */}
+      {/* Header bar for suggestions with Shuffle button */}
+      <div className="flex items-center justify-between w-full mb-3 px-1">
+        <span className="text-xs font-medium text-zinc-400">
+          Suggested Engineering Prompts
+        </span>
+        <button
+          onClick={handleShuffle}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.1] text-[11px] font-medium text-zinc-400 hover:text-white transition-all group"
+          title="Shuffle and roll 4 fresh prompt ideas"
+        >
+          <RotateCw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-300 text-purple-400" />
+          <span>Shuffle Prompts</span>
+        </button>
+      </div>
+
+      {/* Suggestion Cards Grid (4 Randomized Prompts) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full mb-6 text-left">
         {suggestions.map((item, idx) => {
           const Icon = item.icon;
@@ -73,12 +303,17 @@ export const IdleWorkbench: React.FC<IdleWorkbenchProps> = ({ onSelectPrompt, on
               onClick={() => handleCardClick(item.prompt)}
               className="p-4 rounded-2xl bg-[#2f2f2f]/60 hover:bg-[#2f2f2f] border border-white/[0.08] hover:border-white/[0.2] transition-all duration-200 group flex flex-col justify-between gap-2 shadow-sm text-left active:scale-[0.98]"
             >
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-white/[0.06] text-zinc-300 group-hover:text-white transition-colors">
-                  <Icon className="w-4 h-4" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-white/[0.06] text-zinc-300 group-hover:text-white transition-colors">
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors">
+                    {item.title}
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors">
-                  {item.title}
+                <span className="text-[10px] text-zinc-400 px-2 py-0.5 rounded-md bg-white/[0.04] font-mono">
+                  {item.category}
                 </span>
               </div>
               <p className="text-xs text-zinc-400 group-hover:text-zinc-300 leading-relaxed">
@@ -89,14 +324,45 @@ export const IdleWorkbench: React.FC<IdleWorkbenchProps> = ({ onSelectPrompt, on
         })}
       </div>
 
-      {/* Upload Pill */}
-      <button
-        onClick={onOpenUpload}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#2f2f2f]/70 hover:bg-[#2f2f2f] border border-white/[0.08] hover:border-white/[0.2] text-xs font-medium text-zinc-300 hover:text-white transition-all shadow-sm active:scale-[0.98]"
-      >
-        <UploadCloud className="w-3.5 h-3.5 text-blue-400" />
-        <span>Ingest Document / P&ID (PDF, XLSX, DOCX)</span>
-      </button>
+      {/* Upload & Ingestion Button */}
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDirectUploadClick}
+            disabled={isUploading}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#2a2a2d] hover:bg-[#333337] border border-white/[0.12] hover:border-white/[0.25] text-xs font-medium text-zinc-200 hover:text-white transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                <span>Uploading & Ingesting Document...</span>
+              </>
+            ) : (
+              <>
+                <UploadCloud className="w-4 h-4 text-blue-400" />
+                <span>Ingest Document / P&ID (PDF, PPTX, XLSX, DOCX)</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={onOpenUpload}
+            className="px-3 py-2.5 rounded-full bg-white/[0.04] hover:bg-white/[0.1] border border-white/[0.08] text-[11px] text-zinc-400 hover:text-white transition-all"
+            title="Open multi-stage ingestion & OCR inspector"
+          >
+            Inspector
+          </button>
+        </div>
+
+        {/* Upload Success Feedback */}
+        {uploadedFile && (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono animate-fade-in mt-1">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Attached & indexed <strong>{uploadedFile}</strong>! Ask a question or click a prompt above.</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+

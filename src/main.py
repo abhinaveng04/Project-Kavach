@@ -1848,9 +1848,9 @@ def create_app() -> FastAPI:
                 except Exception as e:
                     log.warning("Text read failed for %s: %s", fname, e)
 
-        # Check industrial task intent (refinery SOP citations, Word deliverables, etc.)
+        # Check industrial deliverable intent (formal refinery memos or inspection reports)
         DOC_INTENT_RE = re.compile(
-            r"\b(memo|report|deliverable|inspect|inspection|corrosion|p&id|thickness|calculate|compute|trend|rate|unit\s*200|pipeline|pump|valve)\b",
+            r"\b(draft\s+.*memo|draft\s+.*report|generate\s+.*deliverable|corrosion\s+trend\s+memo|q3\s+corrosion)\b",
             re.I,
         )
         is_industrial_task = bool(DOC_INTENT_RE.search(message)) and not extracted_docs
