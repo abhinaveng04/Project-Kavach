@@ -162,6 +162,10 @@ class KavachApiClient {
     return resp.json();
   }
 
+  async getDocumentPreview(filename: string): Promise<any> {
+    return this.request(`/api/documents/preview/${encodeURIComponent(filename)}`);
+  }
+
   // Artifacts
   async listArtifacts(): Promise<ArtifactResponse[]> {
     try {

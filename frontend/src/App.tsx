@@ -458,6 +458,28 @@ export function App() {
     // File uploaded and indexed
   };
 
+  // 9. Open Document in Canvas (Claude-style side panel reader)
+  const handleOpenDocumentInCanvas = async (filename: string) => {
+    try {
+      const doc = await api.getDocumentPreview(filename);
+      const docArtifact: ArtifactResponse = {
+        artifact_id: `doc_${filename.replace(/[^a-zA-Z0-9]/g, '_')}`,
+        filename: doc.filename || filename,
+        file_type: doc.file_type || 'pdf',
+        file_size_bytes: doc.file_size_bytes || 0,
+        sha256: doc.sha256 || '',
+        created_at: new Date().toISOString(),
+        approved: true,
+        requires_approval: false,
+        download_url: doc.download_url || `/api/documents/download/${encodeURIComponent(filename)}`,
+        content: doc.content || '',
+      };
+      setSelectedArtifact(docArtifact);
+    } catch (err) {
+      console.error('Failed to load document for Canvas preview:', err);
+    }
+  };
+
   return (
     <>
       {isInitializing ? (
@@ -487,6 +509,7 @@ export function App() {
           isTestingEgress={isTestingEgress}
           egressPassed={egressPassed}
           onFileUploaded={handleFileUploaded}
+          onSelectDocument={handleOpenDocumentInCanvas}
         />
       )}
     </>

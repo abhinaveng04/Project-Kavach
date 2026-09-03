@@ -18,6 +18,7 @@ interface ComposerProps {
   attachedFiles: string[];
   onAddAttachment: (filename: string) => void;
   onRemoveAttachment: (index: number) => void;
+  onSelectAttachment?: (filename: string) => void;
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -27,6 +28,7 @@ export const Composer: React.FC<ComposerProps> = ({
   attachedFiles,
   onAddAttachment,
   onRemoveAttachment,
+  onSelectAttachment,
 }) => {
   const [text, setText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -113,14 +115,25 @@ export const Composer: React.FC<ComposerProps> = ({
             {attachedFiles.map((file, idx) => (
               <span
                 key={idx}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2f2f2f] border border-white/[0.12] text-xs font-mono text-zinc-200 shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.12] text-xs font-mono text-zinc-200 shadow-sm transition-all"
               >
-                <Paperclip className="w-3.5 h-3.5 text-blue-400" />
-                <span className="truncate max-w-[160px]">{file}</span>
+                <button
+                  type="button"
+                  onClick={() => onSelectAttachment?.(file)}
+                  className="flex items-center gap-1.5 hover:text-white group"
+                  title={`Preview ${file} in Canvas`}
+                >
+                  <Paperclip className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                  <span className="truncate max-w-[160px]">{file}</span>
+                  <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 bg-white/[0.08] px-1 rounded">
+                    Canvas ↗
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment(idx)}
-                  className="hover:text-rose-400 transition-colors ml-0.5"
+                  className="hover:text-rose-400 transition-colors ml-1 p-0.5"
+                  title="Remove attachment"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

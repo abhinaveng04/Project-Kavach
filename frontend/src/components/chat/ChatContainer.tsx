@@ -9,6 +9,7 @@ interface ChatContainerProps {
   messages: ChatMessage[];
   onInspectCitation: (citation: CitationItem) => void;
   onSelectArtifact: (artifact: ArtifactResponse) => void;
+  onSelectDocument?: (filename: string) => void;
   onApproveAction: (actionId: string) => Promise<void>;
   onRejectAction: (actionId: string, reason?: string) => Promise<void>;
 }
@@ -17,6 +18,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   messages,
   onInspectCitation,
   onSelectArtifact,
+  onSelectDocument,
   onApproveAction,
   onRejectAction,
 }) => {
@@ -65,6 +67,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                 content={msg.content}
                 timestamp={msg.timestamp}
                 attachments={msg.attachments}
+                onSelectAttachment={onSelectDocument}
               />
             ) : (
               <AssistantMessageCard

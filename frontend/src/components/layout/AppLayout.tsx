@@ -46,6 +46,7 @@ interface AppLayoutProps {
   isTestingEgress: boolean;
   egressPassed: boolean | null;
   onFileUploaded: (resp: FileUploadResponse) => void;
+  onSelectDocument?: (filename: string) => void;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -72,6 +73,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   isTestingEgress,
   egressPassed,
   onFileUploaded,
+  onSelectDocument,
 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>('chat');
@@ -158,6 +160,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               messages={messages}
               onInspectCitation={onInspectCitation}
               onSelectArtifact={onSelectArtifact}
+              onSelectDocument={onSelectDocument}
               onApproveAction={onApproveAction}
               onRejectAction={onRejectAction}
             />
@@ -173,6 +176,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             attachedFiles={attachedFiles}
             onAddAttachment={handleAddAttachment}
             onRemoveAttachment={handleRemoveAttachment}
+            onSelectAttachment={onSelectDocument}
           />
         </main>
 

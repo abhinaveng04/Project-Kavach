@@ -929,6 +929,119 @@ def create_app() -> FastAPI:
             "extracted_chunks": 1,
         })
 
+    _doc_preview_cache: dict[str, dict] = {}
+
+    @app.get("/api/documents/preview/{filename:path}")
+    async def get_document_preview(filename: str):
+        inbox_dir = Path("data/inbox")
+        fpath = inbox_dir / filename
+        if not fpath.is_file():
+            dl_path = Path.home() / "Downloads" / filename
+            if dl_path.is_file():
+                fpath = dl_path
+        if not fpath.is_file():
+            art_path = Path("artifacts") / filename
+            if art_path.is_file():
+                fpath = art_path
+        if not fpath.is_file():
+            fname_lower = filename.lower()
+            matches = [f for f in inbox_dir.glob("*") if f.is_file() and fname_lower in f.name.lower()]
+            if matches:
+                fpath = matches[0]
+            else:
+                matches_art = [f for f in Path("artifacts").glob("*") if f.is_file() and fname_lower in f.name.lower()]
+                if matches_art:
+                    fpath = matches_art[0]
+
+        if not fpath.is_file():
+            raise HTTPException(status_code=404, detail=f"Document '{filename}' not found.")
+
+        mtime = fpath.stat().st_mtime
+        cache_key = f"{fpath.name}_{mtime}"
+        if cache_key in _doc_preview_cache:
+            return JSONResponse(_doc_preview_cache[cache_key])
+
+        def _extract():
+            ext = fpath.suffix.lower().lstrip(".")
+            size_bytes = fpath.stat().st_size
+            sha256_hash = hashlib.sha256(fpath.read_bytes()).hexdigest()
+
+            pages_data = []
+            raw_text = ""
+
+            if ext == "pdf":
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(str(fpath)) as pdf:
+                        for i, page in enumerate(pdf.pages):
+                            txt = (page.extract_text() or "").strip()
+                            pages_data.append({
+                                "page_number": i + 1,
+                                "text": txt,
+                            })
+                    raw_text = "\n\n---\n\n".join([f"### Slide / Page {p['page_number']}\n\n{p['text']}" for p in pages_data])
+                except Exception as e:
+                    raw_text = f"Error extracting PDF text: {e}"
+            elif ext in ["txt", "md", "csv", "json", "py", "sql", "log", "yaml", "yml", "xml", "html"]:
+                raw_text = fpath.read_text(encoding="utf-8", errors="ignore")
+                pages_data = [{"page_number": 1, "text": raw_text}]
+            elif ext in ["docx", "doc"]:
+                try:
+                    import docx
+                    doc = docx.Document(str(fpath))
+                    paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                    raw_text = "\n\n".join(paragraphs)
+                    pages_data = [{"page_number": 1, "text": raw_text}]
+                except Exception as e:
+                    raw_text = f"Word deliverable: {fpath.name} ({round(size_bytes/1024, 1)} KB)"
+            else:
+                raw_text = f"Document: {fpath.name} ({round(size_bytes/1024, 1)} KB)"
+
+            return {
+                "filename": fpath.name,
+                "file_type": ext,
+                "file_size_bytes": size_bytes,
+                "sha256": sha256_hash,
+                "total_pages": len(pages_data),
+                "pages": pages_data,
+                "content": raw_text,
+                "download_url": f"/api/documents/download/{fpath.name}",
+            }
+
+        data = await asyncio.to_thread(_extract)
+        _doc_preview_cache[cache_key] = data
+        return JSONResponse(data)
+
+    @app.get("/api/documents/download/{filename:path}")
+    async def download_document_file(filename: str):
+        inbox_dir = Path("data/inbox")
+        fpath = inbox_dir / filename
+        if not fpath.is_file():
+            dl_path = Path.home() / "Downloads" / filename
+            if dl_path.is_file():
+                fpath = dl_path
+        if not fpath.is_file():
+            art_path = Path("artifacts") / filename
+            if art_path.is_file():
+                fpath = art_path
+        if not fpath.is_file():
+            fname_lower = filename.lower()
+            matches = [f for f in inbox_dir.glob("*") if f.is_file() and fname_lower in f.name.lower()]
+            if matches:
+                fpath = matches[0]
+            else:
+                matches_art = [f for f in Path("artifacts").glob("*") if f.is_file() and fname_lower in f.name.lower()]
+                if matches_art:
+                    fpath = matches_art[0]
+                else:
+                    raise HTTPException(status_code=404, detail=f"File '{filename}' not found")
+
+        return FileResponse(
+            path=str(fpath),
+            filename=fpath.name,
+            media_type="application/octet-stream"
+        )
+
     @app.get("/artifacts")
     async def list_artifacts():
         arts = []

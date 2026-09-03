@@ -13,11 +13,13 @@ export const ArtifactExportBar: React.FC<ArtifactExportBarProps> = ({ artifact }
   if (!artifact) return null;
 
   const handleDownload = () => {
-    window.open(`/artifacts/${artifact.artifact_id}/download`, '_blank');
+    const url = artifact.download_url || `/artifacts/${artifact.artifact_id}/download`;
+    window.open(url, '_blank');
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.origin + `/artifacts/${artifact.artifact_id}/download`);
+    const url = artifact.download_url || `/artifacts/${artifact.artifact_id}/download`;
+    navigator.clipboard.writeText(window.location.origin + url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

@@ -1,15 +1,17 @@
 import React from 'react';
-import { Paperclip } from 'lucide-react';
+import { Paperclip, ExternalLink, FileText } from 'lucide-react';
 
 interface UserMessageCardProps {
   content: string;
   timestamp: string;
   attachments?: string[];
+  onSelectAttachment?: (filename: string) => void;
 }
 
 export const UserMessageCard: React.FC<UserMessageCardProps> = ({
   content,
   attachments = [],
+  onSelectAttachment,
 }) => {
   return (
     <div className="flex justify-end my-4 animate-message-spring select-text">
@@ -19,15 +21,21 @@ export const UserMessageCard: React.FC<UserMessageCardProps> = ({
         </p>
 
         {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/[0.08]">
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.08]">
             {attachments.map((file, idx) => (
-              <span
+              <button
                 key={idx}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.08] text-xs font-mono text-zinc-300"
+                type="button"
+                onClick={() => onSelectAttachment?.(file)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.16] border border-white/[0.1] hover:border-white/[0.25] text-xs font-medium text-zinc-200 hover:text-white transition-all shadow-sm group active:scale-95 text-left"
+                title={`Click to open ${file} in Canvas`}
               >
-                <Paperclip className="w-3 h-3 text-blue-400" />
-                <span className="truncate max-w-[160px]">{file}</span>
-              </span>
+                <FileText className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-300 transition-colors shrink-0" />
+                <span className="truncate max-w-[180px] font-mono">{file}</span>
+                <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 bg-black/40 px-1.5 py-0.5 rounded font-mono flex items-center gap-1">
+                  Canvas <ExternalLink className="w-2.5 h-2.5" />
+                </span>
+              </button>
             ))}
           </div>
         )}
