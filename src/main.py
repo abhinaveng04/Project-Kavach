@@ -903,8 +903,8 @@ def create_app() -> FastAPI:
 
     @app.delete("/sessions/{session_id}")
     async def delete_session(session_id: str):
-        global _sessions, _session_messages
-        _sessions = [s for s in _sessions if s.get("session_id") != session_id]
+        nonlocal _sessions, _session_messages
+        _sessions[:] = [s for s in _sessions if s.get("session_id") != session_id]
         _session_messages.pop(session_id, None)
         _save_persisted_sessions(_sessions)
         _save_persisted_messages(_session_messages)

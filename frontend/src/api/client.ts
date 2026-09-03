@@ -125,11 +125,7 @@ class KavachApiClient {
   }
 
   async deleteSession(sessionId: string): Promise<{ status: string; session_id: string }> {
-    try {
-      return await this.request(`/sessions/${sessionId}`, { method: 'DELETE' });
-    } catch {
-      return { status: 'deleted', session_id: sessionId };
-    }
+    return await this.request(`/sessions/${sessionId}`, { method: 'DELETE' });
   }
 
   async getSessionDebug(sessionId: string): Promise<any> {

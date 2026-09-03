@@ -441,13 +441,17 @@ export function App() {
       setSessions((prev) => {
         const next = prev.filter((s) => s.session_id !== sessionId);
         localStorage.setItem('kavach_sessions', JSON.stringify(next));
-        if (activeSessionId === sessionId && next.length > 0) {
-          setActiveSessionId(next[0].session_id);
+        if (activeSessionId === sessionId) {
+          if (next.length > 0) {
+            setActiveSessionId(next[0].session_id);
+          } else {
+            handleNewSession();
+          }
         }
         return next;
       });
     } catch (err) {
-      console.error(err);
+      console.error('Failed to delete session:', err);
     }
   };
 
