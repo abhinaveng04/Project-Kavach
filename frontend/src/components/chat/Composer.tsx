@@ -7,6 +7,7 @@ import {
   Sparkles,
   Layers,
   FileText,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { api } from '../../api/client';
@@ -19,6 +20,7 @@ interface ComposerProps {
   onAddAttachment: (filename: string) => void;
   onRemoveAttachment: (index: number) => void;
   onSelectAttachment?: (filename: string) => void;
+  uploadingFiles?: string[];
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -29,6 +31,7 @@ export const Composer: React.FC<ComposerProps> = ({
   onAddAttachment,
   onRemoveAttachment,
   onSelectAttachment,
+  uploadingFiles = [],
 }) => {
   const [text, setText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -112,33 +115,46 @@ export const Composer: React.FC<ComposerProps> = ({
         {/* Attachment chips */}
         {attachedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 px-2 pb-1 animate-slide-up">
-            {attachedFiles.map((file, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.12] text-xs font-mono text-zinc-200 shadow-sm transition-all"
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelectAttachment?.(file)}
-                  className="flex items-center gap-1.5 hover:text-white group"
-                  title={`Preview ${file} in Canvas`}
+            {attachedFiles.map((file, idx) => {
+              const isUploading = uploadingFiles.includes(file);
+              return (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2f2f2f] hover:bg-[#383838] border border-white/[0.12] text-xs font-mono text-zinc-200 shadow-sm transition-all"
                 >
-                  <Paperclip className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-300 transition-colors" />
-                  <span className="truncate max-w-[160px]">{file}</span>
-                  <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 bg-white/[0.08] px-1 rounded">
-                    Canvas ↗
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemoveAttachment(idx)}
-                  className="hover:text-rose-400 transition-colors ml-1 p-0.5"
-                  title="Remove attachment"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </span>
-            ))}
+                  {isUploading ? (
+                    <span className="flex items-center gap-1.5 text-blue-400">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                      <span className="truncate max-w-[160px]">{file}</span>
+                      <span className="text-[10px] bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded text-blue-300 animate-pulse">
+                        uploading...
+                      </span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onSelectAttachment?.(file)}
+                      className="flex items-center gap-1.5 hover:text-white group"
+                      title={`Preview ${file} in Canvas`}
+                    >
+                      <Paperclip className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                      <span className="truncate max-w-[160px]">{file}</span>
+                      <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 bg-white/[0.08] px-1 rounded">
+                        Canvas ↗
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRemoveAttachment(idx)}
+                    className="hover:text-rose-400 transition-colors ml-1 p-0.5"
+                    title="Remove attachment"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              );
+            })}
           </div>
         )}
 
