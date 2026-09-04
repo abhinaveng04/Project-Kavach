@@ -4,8 +4,9 @@ CALC_RE = re.compile(r"\b(calculate|compute|trend|rate|delta)\b", re.I)
 
 def route_l1(mimes, names, prompt, page_outcome):
     """Deterministic fast-path (< 5 ms). Returns (specialist, trace)."""
-    if any(m.startswith("image/") for m in mimes):
-        return "vision", "L1 MIME image/* -> Vision"
+    IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tiff", ".svg")
+    if any(m.startswith("image/") for m in mimes) or any(n.lower().endswith(IMAGE_EXTS) for n in names):
+        return "vision", "L1 image attachment -> Vision"
     if any(n.lower().endswith((".xlsx", ".csv")) for n in names):
         return "coder", "L1 MIME spreadsheet -> Coder"
     if CALC_RE.search(prompt):

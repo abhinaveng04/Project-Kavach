@@ -81,7 +81,7 @@ def main():
                 cwd=str(Path(__file__).parent),
             )
             procs.append(vis_proc)
-            for _ in range(20):
+            for _ in range(40):
                 if is_port_in_use(8081):
                     print("      Vision server ready on port 8081.")
                     break

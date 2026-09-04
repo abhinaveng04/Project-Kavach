@@ -8,6 +8,7 @@ import {
   Layers,
   FileText,
   Loader2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { api } from '../../api/client';
@@ -22,6 +23,13 @@ interface ComposerProps {
   onSelectAttachment?: (filename: string) => void;
   uploadingFiles?: string[];
 }
+
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.bmp', '.webp', '.svg', '.gif', '.tiff'];
+
+const isImageFile = (filename: string): boolean => {
+  const lower = (filename || '').toLowerCase();
+  return IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+};
 
 export const Composer: React.FC<ComposerProps> = ({
   onSendMessage,
@@ -40,8 +48,9 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!text.trim() || isExecuting) return;
-    onSendMessage(text.trim(), attachedFiles);
+    const msg = text.trim() || (attachedFiles.length > 0 ? 'Analyze the attached image/document in detail.' : '');
+    if (!msg || isExecuting) return;
+    onSendMessage(msg, attachedFiles);
     setText('');
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -63,6 +72,30 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      const files = Array.from(e.clipboardData.files);
+      const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        for (const file of imageFiles) {
+          const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+          const name =
+            file.name === 'image.png' || !file.name
+              ? `screenshot_${Date.now().toString(36)}.${ext}`
+              : file.name;
+          const namedFile = new File([file], name, { type: file.type });
+          onAddAttachment(name);
+          try {
+            await api.uploadFile(namedFile);
+          } catch (err) {
+            console.error('Failed to upload pasted image:', err);
+          }
+        }
+      }
+    }
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
@@ -74,6 +107,8 @@ export const Composer: React.FC<ComposerProps> = ({
           console.error('Failed to upload file:', file.name, err);
         }
       }
+      // Reset input value so re-selecting same file triggers onChange
+      e.target.value = '';
     }
   };
 
@@ -102,7 +137,7 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
-  const canSubmit = text.trim().length > 0 && !isExecuting;
+  const canSubmit = (text.trim().length > 0 || attachedFiles.length > 0) && !isExecuting;
 
   return (
     <div
@@ -117,6 +152,7 @@ export const Composer: React.FC<ComposerProps> = ({
           <div className="flex flex-wrap gap-2 px-2 pb-1 animate-slide-up">
             {attachedFiles.map((file, idx) => {
               const isUploading = uploadingFiles.includes(file);
+              const isImg = isImageFile(file);
               return (
                 <span
                   key={idx}
@@ -137,7 +173,21 @@ export const Composer: React.FC<ComposerProps> = ({
                       className="flex items-center gap-1.5 hover:text-white group"
                       title={`Preview ${file} in Canvas`}
                     >
-                      <Paperclip className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                      {isImg ? (
+                        <span className="relative flex items-center justify-center w-4 h-4 rounded overflow-hidden bg-black/40 border border-white/20 shrink-0">
+                          <img
+                            src={`/files/raw/${encodeURIComponent(file)}`}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <ImageIcon className="w-3 h-3 text-blue-400" />
+                        </span>
+                      ) : (
+                        <Paperclip className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                      )}
                       <span className="truncate max-w-[160px]">{file}</span>
                       <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 bg-white/[0.08] px-1 rounded">
                         Canvas ↗
@@ -172,10 +222,13 @@ export const Composer: React.FC<ComposerProps> = ({
             value={text}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             disabled={isExecuting}
             placeholder={
               isExecuting
                 ? 'Kavach is reasoning and executing tools...'
+                : attachedFiles.length > 0
+                ? 'Ask a question about the attached image/file, or press Enter to analyze...'
                 : 'Message KAVACH Sovereign (MRPL / MoPNG)...'
             }
             className="w-full bg-transparent text-[15px] text-zinc-100 placeholder:text-zinc-500 resize-none focus:outline-none disabled:opacity-50 min-h-[44px] max-h-[200px] leading-relaxed pr-12"
@@ -189,6 +242,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 ref={fileInputRef}
                 type="file"
                 multiple
+                accept=".png,.jpg,.jpeg,.bmp,.webp,.svg,.pdf,.docx,.doc,.xlsx,.pptx,.txt,.csv"
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -197,7 +251,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isExecuting}
                 className="p-2 rounded-full hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-all"
-                title="Attach Document / P&ID (PDF, XLSX, DOCX)"
+                title="Attach Images (PNG, JPG), Diagrams (P&ID), or Documents (PDF, DOCX)"
               >
                 <Paperclip className="w-4 h-4" />
               </button>

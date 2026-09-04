@@ -270,8 +270,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             artifact={selectedArtifact}
             artifactsList={artifactsList}
             citations={allCitations}
+            messages={messages}
             onClose={onCloseArtifact}
             onSelectArtifact={onSelectArtifact}
+            onSelectDocument={onSelectDocument}
             onInspectCitation={onInspectCitation}
           />
         )}

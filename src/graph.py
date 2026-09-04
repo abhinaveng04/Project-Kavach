@@ -264,6 +264,8 @@ def _tool_vision_extract(image_bytes: bytes, filename: str) -> str:
     PRD §5.4 / ARCH §11 — Vision model port is 8081 (locked).
     Returns structured JSON string: {"tags": [...], "bboxes": [...]}
     """
+    if not image_bytes:
+        return "No image data available for vision extraction."
     try:
         import base64
 
@@ -461,10 +463,21 @@ def node_toolcall(state: AgentState) -> AgentState:
         image_bytes = b""
         filename = "unknown.png"
         for fname, fdata in state.get("staging", {}).items():
-            if fname.lower().endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp")):
+            if fname.lower().endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
                 image_bytes = fdata
                 filename = fname
                 break
+        if not image_bytes:
+            inbox_p = Path("data/inbox")
+            if inbox_p.is_dir():
+                for f in inbox_p.glob("*"):
+                    if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"):
+                        try:
+                            image_bytes = f.read_bytes()
+                            filename = f.name
+                            break
+                        except Exception:
+                            pass
         toolname = "vision_extract"
         args: dict[str, Any] = {"filename": filename}
 
