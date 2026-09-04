@@ -32,6 +32,23 @@
         background: rgba(74, 85, 104, 1);
       }
     </style>
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('kavach_theme') || 'dark';
+          document.documentElement.setAttribute('data-theme', t);
+          if (t === 'light') {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.documentElement.style.backgroundColor = '#faf9f5';
+          } else {
+            document.documentElement.classList.remove('light');
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.backgroundColor = '#131316';
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-workbench-bg text-workbench-text antialiased selection:bg-workbench-accent/30 selection:text-workbench-text overflow-hidden">
     <div id="root" class="h-full w-full"></div>
