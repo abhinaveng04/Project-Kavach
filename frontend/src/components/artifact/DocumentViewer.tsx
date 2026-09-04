@@ -386,8 +386,9 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ artifact, conten
                   <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[11px] font-mono font-semibold">
                     {unitLabel} {activePage.page_number} of {totalPages}
                   </span>
-                  <span className="text-[11px] text-zinc-500 font-mono">
-                    {activePage.word_count || 0} words
+                  <span className="text-[11px] text-zinc-400 font-mono flex items-center gap-1">
+                    <Shield className="w-3 h-3 text-emerald-400" />
+                    Section {activePage.page_number} of {totalPages} · {activePage.word_count || (activePage.text ? activePage.text.trim().split(/\s+/).filter(Boolean).length : 0)} words
                   </span>
                 </div>
                 <h4 className="text-sm font-semibold text-white mt-1.5">
@@ -398,7 +399,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ artifact, conten
               <button
                 onClick={(e) => handleCopyPageSummary(activePage, e)}
                 className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] px-2.5 py-1 rounded-lg transition-colors shrink-0"
-                title="Copy Slide Summary"
+                title="Copy Executive Summary"
               >
                 {copiedPage === activePage.page_number ? (
                   <span className="text-emerald-400 flex items-center gap-1">
@@ -441,16 +442,16 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ artifact, conten
                 </div>
                 <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-[10px] text-zinc-300 font-mono flex items-center gap-1 border border-white/10">
                   <ImageIcon className="w-3 h-3 text-purple-400" />
-                  <span>Actual {unitLabel} View</span>
+                  <span>Actual {unitLabel} Content</span>
                 </div>
               </div>
             )}
 
-            {/* ✨ AI Page Summary */}
+            {/* ✨ Executive Summary */}
             <div className="rounded-xl p-3.5 bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-transparent border border-purple-500/20 space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-300">
                 <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>AI Slide Summary</span>
+                <span>Executive Summary</span>
               </div>
               <p className="text-xs text-zinc-200 leading-relaxed">
                 {activePage.summary}
@@ -478,7 +479,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ artifact, conten
               </div>
             )}
 
-            {/* 📄 Expandable Slide Text */}
+            {/* 📄 Expandable Document Text */}
             <div className="pt-2 border-t border-white/[0.06]">
               <button
                 onClick={() => togglePageExpand(activePage.page_number)}
@@ -488,8 +489,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ artifact, conten
                   <BookOpen className="w-3.5 h-3.5 text-zinc-400" />
                   <span>
                     {expandedPages[activePage.page_number]
-                      ? 'Hide Extracted Text'
-                      : 'View Extracted Slide Text'}
+                      ? 'Hide Document Text'
+                      : 'View Document Text'}
                   </span>
                 </span>
                 {expandedPages[activePage.page_number] ? (

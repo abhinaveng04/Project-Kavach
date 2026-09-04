@@ -21,7 +21,7 @@ export type ExecutionStepStatus =
 
 export interface ExecutionTimelineStep {
   id: string;
-  name: 'UNDERSTAND' | 'ROUTE' | 'PLAN' | 'TOOL' | 'OBSERVE' | 'REFLECT' | 'HITL' | 'FINALIZE';
+  name: 'PLAN' | 'ROUTE' | 'VISION' | 'RAG' | 'CODER' | 'REFLECT' | 'HITL' | 'FINALIZE' | 'UNDERSTAND' | 'TOOL' | 'OBSERVE' | string;
   label: string;
   status: ExecutionStepStatus;
   durationMs?: number;

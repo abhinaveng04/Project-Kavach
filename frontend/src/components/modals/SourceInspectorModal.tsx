@@ -1,6 +1,13 @@
-import React from 'react';
-import { X, Bookmark, FileText, CheckCircle2, Shield, Calendar, Hash } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Bookmark, FileText, CheckCircle2, Shield, MapPin, Loader2 } from 'lucide-react';
 import { CitationItem } from '../../types/api';
+
+interface BboxData {
+  tag: string;
+  doc_name: string;
+  page_num: number;
+  bbox: number[] | { x: number; y: number; w: number; h: number } | null;
+}
 
 interface SourceInspectorModalProps {
   citation: CitationItem | null;
@@ -8,7 +15,33 @@ interface SourceInspectorModalProps {
 }
 
 export const SourceInspectorModal: React.FC<SourceInspectorModalProps> = ({ citation, onClose }) => {
+  const [pidTags, setPidTags] = useState<BboxData[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+
+  useEffect(() => {
+    if (!citation?.citation_tag) return;
+    const tagQuery = citation.citation_tag.replace(/\[SOP-REF §.*\]/, '').trim() || citation.citation_tag;
+
+    setLoadingTags(true);
+    fetch(`/api/pid-tags?tag=${encodeURIComponent(tagQuery)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setPidTags(data.tags ?? []);
+      })
+      .catch(() => setPidTags([]))
+      .finally(() => setLoadingTags(false));
+  }, [citation?.citation_tag]);
+
   if (!citation) return null;
+
+  const formatBbox = (bbox: BboxData['bbox']): string => {
+    if (!bbox) return 'No bounding box';
+    if (Array.isArray(bbox)) return `[${bbox.map((v) => Math.round(v)).join(', ')}]`;
+    if (typeof bbox === 'object' && 'x' in bbox) {
+      return `x:${Math.round(bbox.x)} y:${Math.round(bbox.y)} w:${Math.round(bbox.w)} h:${Math.round(bbox.h)}`;
+    }
+    return String(bbox);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in select-text">
@@ -65,6 +98,51 @@ export const SourceInspectorModal: React.FC<SourceInspectorModalProps> = ({ cita
             </div>
           </div>
 
+          {/* P&ID Bounding Box Overlays */}
+          <div className="space-y-2">
+            <h5 className="font-semibold text-zinc-300 text-xs flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-amber-400" />
+              P&amp;ID Equipment Tag Locations
+              {loadingTags && <Loader2 className="w-3 h-3 animate-spin text-zinc-400 ml-1" />}
+            </h5>
+
+            {pidTags.length > 0 ? (
+              <div className="space-y-2">
+                {pidTags.map((tag, i) => (
+                  <div
+                    key={i}
+                    className="p-3 rounded-xl bg-[#27272a] border border-white/[0.06] flex items-start justify-between gap-4"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="font-mono font-semibold text-amber-300 text-[12px]">{tag.tag}</span>
+                      <div className="text-[11px] text-zinc-400">
+                        {tag.doc_name} · Page {tag.page_num}
+                      </div>
+                    </div>
+                    {tag.bbox && (
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] uppercase text-zinc-500 block font-mono">Bounding Box</span>
+                        <span className="text-[11px] font-mono text-zinc-200">{formatBbox(tag.bbox)}</span>
+                        {/* Visual bounding box indicator */}
+                        <div
+                          className="mt-1.5 border-2 border-amber-400/60 rounded bg-amber-400/10"
+                          style={{ width: 48, height: 24 }}
+                          title={`Crop overlay: ${formatBbox(tag.bbox)}`}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : loadingTags ? (
+              <p className="text-[11px] text-zinc-500 italic">Querying pid_tags.db...</p>
+            ) : (
+              <p className="text-[11px] text-zinc-500 italic">
+                No matching P&amp;ID tags found for this citation. Ingest a P&amp;ID diagram to populate bounding boxes.
+              </p>
+            )}
+          </div>
+
           {/* Cryptographic Lineage */}
           <div className="space-y-2">
             <h5 className="font-semibold text-zinc-300 text-xs flex items-center gap-1.5">
@@ -79,6 +157,10 @@ export const SourceInspectorModal: React.FC<SourceInspectorModalProps> = ({ cita
               <div className="flex items-center justify-between">
                 <span>Storage Architecture:</span>
                 <span className="text-emerald-400 font-medium">100% On-Premise Sovereign Memory</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Platform:</span>
+                <span className="text-purple-400 font-medium">Swara.ai Industrial Sovereignty Engine</span>
               </div>
             </div>
           </div>

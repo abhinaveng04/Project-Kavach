@@ -1,4 +1,4 @@
-"""Model Downloader for Project-Kavach.
+"""Model Downloader for Swara.ai.
 Downloads quantized sovereign GGUF models directly from Hugging Face into their respective directories:
   1. CEO (Primary Reasoning):
      - Qwen3-1.7B-Q4_K_M.gguf (unsloth/Qwen3-1.7B-GGUF) -> models/ceo/
@@ -92,7 +92,7 @@ def download_file(repo_id: str, filename: str, target_dir: Path, role: str, expe
     from tqdm import tqdm
 
     url = f"https://huggingface.co/{repo_id}/resolve/main/{filename}"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Kavach-Model-Downloader"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Swara-Model-Downloader"}
 
     resume_pos = 0
     if temp_file.is_file():
@@ -139,7 +139,7 @@ def main():
             pass
 
     print("=" * 70)
-    print("  KAVACH -- Sovereign High-Performance Model Downloader")
+    print("  Swara.ai -- Sovereign High-Performance Model Downloader")
     print("=" * 70)
     print("  Target Models:")
     for m in MODELS:

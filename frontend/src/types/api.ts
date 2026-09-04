@@ -80,6 +80,46 @@ export interface HardwareProfileStatus {
   ram_percent?: number;
 }
 
+export interface DiagnosticModelItem {
+  key: string;
+  role: string;
+  model_name: string;
+  url: string;
+  backend: string;
+  estimated_vram_mb: number;
+  reachable: boolean;
+  status: 'ONLINE' | 'UNREACHABLE';
+  latency_ms: number;
+  status_code?: number | null;
+  error?: string | null;
+}
+
+export interface SystemDiagnosticsResponse {
+  status: string;
+  timestamp: number;
+  host: {
+    os: string;
+    cpu_name: string;
+    cpu_cores?: number;
+    cpu_percent: number;
+    ram_total_gb: number;
+    ram_used_gb: number;
+    ram_percent: number;
+    gpu_name: string;
+    vram_max_mb?: number;
+    secondary_gpu?: string;
+    gpu_backend?: string;
+  };
+  network?: {
+    adapters: string[];
+    bytes_sent_mb: number;
+    bytes_recv_mb: number;
+    packets_sent: number;
+    packets_recv: number;
+  };
+  models: Record<string, DiagnosticModelItem>;
+}
+
 export interface CitationItem {
   document_id: string;
   filename: string;
@@ -131,12 +171,14 @@ export interface PendingApproval {
   type: string;
   description: string;
   parameters?: Record<string, any>;
+  details?: Record<string, any>;
 }
 
 export interface ChatRequest {
   session_id?: string;
   message: string;
   attachments?: string[];
+  model_override?: string;
 }
 
 export interface ChatResponse {

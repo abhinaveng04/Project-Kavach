@@ -23,7 +23,7 @@ from PIL import Image
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] vision.server — %(message)s")
 log = logging.getLogger("vision.server")
 
-app = FastAPI(title="Kavach Sovereign Local Vision Server", version="1.0.0")
+app = FastAPI(title="Swara.ai Sovereign Local Vision Server", version="1.0.0")
 
 _vision_llm = None
 
@@ -145,7 +145,7 @@ async def health():
     return JSONResponse({
         "status": "healthy",
         "model_loaded": _vision_llm is not None or (model_path.is_file() and mmproj_path.is_file()),
-        "service": "kavach-vision-inference",
+        "service": "swara-vision-inference",
         "port": 8081,
     })
 

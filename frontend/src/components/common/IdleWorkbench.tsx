@@ -57,41 +57,41 @@ const ALL_SUGGESTIONS = [
     category: 'Refinery Operations',
   },
 
-  // 2. Coding, Algorithms & Python Sandbox
+  // 2. Refinery Metallurgy, Calculations & Python Sandbox
   {
-    title: 'Reverse a Linked List',
-    prompt: 'Implement an in-place singly linked list reversal with clean Big-O analysis.',
+    title: 'Crude Column 100-C-01 Wall Thickness',
+    prompt: 'Calculate remaining service life and minimum required wall thickness for Crude Column 100-C-01 from ultrasonic thickness logs.',
     icon: Terminal,
-    subtitle: 'Pointer manipulation with O(1) space complexity',
-    category: 'Coding & Algorithms',
+    subtitle: 'Refinery Metallurgy',
+    category: 'Refinery Metallurgy',
   },
   {
-    title: 'LRU Cache Implementation',
-    prompt: 'Write an optimal LRU Cache class in Python using a doubly linked list and hash map.',
+    title: 'Exchanger E-102 Fouling Rate',
+    prompt: 'Calculate fouling resistance Rf and overall heat transfer coefficient U for shell-and-tube exchanger E-102.',
     icon: Calculator,
-    subtitle: 'O(1) get & put cache data structure',
-    category: 'Coding & Algorithms',
+    subtitle: 'Heat transfer coefficient & fouling calculation',
+    category: 'Refinery Metallurgy',
   },
   {
-    title: 'Binary Search in Rotated Array',
-    prompt: 'Write an error-free binary search for a rotated sorted array in Python.',
+    title: 'PSV-201 Orifice Area (API 520)',
+    prompt: 'Calculate required relief area and select standard API orifice letter for PSV-201 under fire case conditions.',
     icon: Terminal,
-    subtitle: 'O(log n) boundary search algorithm',
-    category: 'Coding & Algorithms',
+    subtitle: 'API STD 520 vapor relief sizing',
+    category: 'Refinery Metallurgy',
   },
   {
     title: 'Sensor Statistical Analysis',
     prompt: 'Calculate standard deviation and 95% confidence interval for pressure sensor logs in Python.',
     icon: Calculator,
     subtitle: 'Statistical uncertainty & telemetry processing',
-    category: 'Coding & Algorithms',
+    category: 'Refinery Metallurgy',
   },
   {
-    title: 'Memory-Efficient Log Parser',
-    prompt: 'Write a memory-efficient generator to parse 500MB JSON log dumps locally.',
+    title: 'Pipe Schedule & Wall Allowance',
+    prompt: 'Calculate minimum required wall thickness and select ANSI pipe schedule for hydrotreater line 4"-HC-101-A1A.',
     icon: Terminal,
-    subtitle: 'Streaming generator for sovereign audit logs',
-    category: 'Coding & Algorithms',
+    subtitle: 'ASME B31.3 process piping calculation',
+    category: 'Refinery Metallurgy',
   },
 
   // 3. SOP Compliance & Safety Standards
@@ -154,10 +154,10 @@ const ALL_SUGGESTIONS = [
     category: 'Vision & Diagrams',
   },
   {
-    title: 'Slide Presentation Synthesis',
-    prompt: 'Extract the technical problem statement and proposed architecture from presentation slides.',
+    title: 'Technical Memorandum Synthesis',
+    prompt: 'Extract technical findings, corrosion rates, and operational parameters from inspection memorandum documents.',
     icon: FileText,
-    subtitle: 'Multi-slide presentation OCR synthesis',
+    subtitle: 'Multimodal document OCR synthesis',
     category: 'Vision & Diagrams',
   },
 
@@ -272,10 +272,10 @@ export const IdleWorkbench: React.FC<IdleWorkbenchProps> = ({
       </div>
 
       <h2 className="text-3xl font-semibold tracking-tight text-white mb-2.5">
-        What are we engineering today?
+        <span className="text-purple-400">Swara.ai</span> Workbench
       </h2>
       <p className="text-sm text-zinc-400 max-w-lg mb-8 leading-relaxed">
-        Sovereign, air-gapped agentic intelligence for refinery engineering & P&ID verification. 100% on-premise execution.
+        Sovereign industrial AI platform — air-gapped agentic intelligence for refinery engineering, P&ID verification, and SOP compliance. 100% on-premise execution.
       </p>
 
       {/* Header bar for suggestions with Shuffle button */}

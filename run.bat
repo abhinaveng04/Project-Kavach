@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title KAVACH - Sovereign Workbench
+title Swara.ai - Sovereign Workbench
 cd /d "%~dp0"
 
 echo ======================================================================
-echo   KAVACH - Sovereign On-Premise AI Workbench
+echo   Swara.ai - Sovereign On-Premise AI Workbench
 echo   MoPNG / MRPL (SIH26117)
 echo ======================================================================
 echo.
@@ -35,7 +35,7 @@ if errorlevel 1 (
 
 REM 3. Launch System
 echo.
-echo [3/3] Starting KAVACH Sovereign Engine...
+echo [3/3] Starting Swara.ai Sovereign Engine...
 venv\Scripts\python.exe run.py
 
 if errorlevel 1 (

@@ -1,4 +1,4 @@
-/** Typed API Client for KAVACH Sovereign Local Backend (MRPL / MoPNG). */
+/** Typed API Client for Swara.ai Sovereign Local Backend (MRPL / MoPNG). */
 
 import {
   ArtifactResponse,
@@ -7,11 +7,12 @@ import {
   FileUploadResponse,
   HardwareProfileStatus,
   SessionResponse,
+  SystemDiagnosticsResponse,
   SystemStatusResponse,
   TestEgressResponse,
 } from '../types/api';
 
-class KavachApiClient {
+class SwaraApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     try {
@@ -37,7 +38,7 @@ class KavachApiClient {
       return (await resp.json()) as T;
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        throw new Error('Kavach backend is currently unreachable. Ensure the local orchestrator is running on http://127.0.0.1:8000.');
+        throw new Error('Swara.ai backend is currently unreachable. Ensure the local orchestrator is running on http://127.0.0.1:8000.');
       }
       throw err;
     }
@@ -48,7 +49,7 @@ class KavachApiClient {
     try {
       return await this.request('/health');
     } catch {
-      return { status: 'healthy', system: 'Kavach', version: '5.3', backend: 'READY', offline_only: true };
+      return { status: 'healthy', system: 'Swara.ai', version: '3.0.0', backend: 'READY', offline_only: true };
     }
   }
 
@@ -84,6 +85,10 @@ class KavachApiClient {
         ram_percent: 83,
       };
     }
+  }
+
+  async getSystemDiagnostics(): Promise<SystemDiagnosticsResponse> {
+    return await this.request('/api/system/diagnostics');
   }
 
   async runTestEgress(): Promise<TestEgressResponse> {
@@ -143,9 +148,12 @@ class KavachApiClient {
   }
 
   // Files & Documents
-  async uploadFile(file: File): Promise<FileUploadResponse> {
+  async uploadFile(file: File, modelOverride?: string): Promise<FileUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
+    if (modelOverride) {
+      formData.append('model_override', modelOverride);
+    }
 
     const resp = await fetch('/files/upload', {
       method: 'POST',
@@ -154,6 +162,29 @@ class KavachApiClient {
 
     if (!resp.ok) {
       let errorDetail = `Upload failed (${resp.status})`;
+      try {
+        const errJson = await resp.json();
+        errorDetail = errJson.detail || errorDetail;
+      } catch {}
+      throw new Error(errorDetail);
+    }
+
+    return resp.json();
+  }
+
+  async uploadBatch(files: File[], prompt: string, modelOverride: string = 'auto'): Promise<{ task_id: string; specialist: string; trace: string }> {
+    const formData = new FormData();
+    files.forEach((f) => formData.append('files', f));
+    formData.append('prompt', prompt);
+    formData.append('model_override', modelOverride);
+
+    const resp = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!resp.ok) {
+      let errorDetail = `Batch upload failed (${resp.status})`;
       try {
         const errJson = await resp.json();
         errorDetail = errJson.detail || errorDetail;
@@ -216,4 +247,4 @@ class KavachApiClient {
   }
 }
 
-export const api = new KavachApiClient();
+export const api = new SwaraApiClient();

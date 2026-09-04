@@ -1,10 +1,10 @@
-/** Server-Sent Events (SSE) Client for KAVACH Live Execution Streaming. */
+/** Server-Sent Events (SSE) Client for Swara.ai Live Execution Streaming. */
 
 import { AgentEvent, AgentEventType } from '../types/events';
 
 export type SSEEventListener = (event: AgentEvent) => void;
 
-export class KavachSSEClient {
+export class SwaraSSEClient {
   private eventSource: EventSource | null = null;
   private listeners: Set<SSEEventListener> = new Set();
   private isConnected: boolean = false;
@@ -16,7 +16,7 @@ export class KavachSSEClient {
     }
 
     this.disconnect();
-    this.currentSessionId = sessionId || 'kavach-session';
+    this.currentSessionId = sessionId || 'swara-session';
 
     const streamUrl = sessionId ? `/stream?session_id=${encodeURIComponent(sessionId)}` : '/stream';
     this.eventSource = new EventSource(streamUrl);
@@ -52,7 +52,7 @@ export class KavachSSEClient {
       });
     });
 
-    // 2. Listen to Kavach-specific event types
+    // 2. Listen to Swara-specific event types
     this.eventSource.addEventListener('[ROUTE]', (e: MessageEvent) => {
       try {
         const parsed = JSON.parse(e.data);
@@ -113,6 +113,38 @@ export class KavachSSEClient {
       }
     });
 
+    this.eventSource.addEventListener('agent_hitl', (e: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(e.data);
+        handleEvent(
+          AgentEventType.HITL_REQUEST,
+          {
+            action_id: parsed.task_id || parsed.action_id || 'hitl-1',
+            task_id: parsed.task_id,
+            type: parsed.deliverable_type || 'create_artifact',
+            description: parsed.preview || parsed.diff || 'Human-in-the-Loop Confirmation Required',
+            title: parsed.title || 'Engineering Deliverable',
+            diff: parsed.diff,
+            preview: parsed.preview,
+            citations: parsed.citations || [],
+            details: {
+              diff: parsed.diff,
+              preview: parsed.preview,
+              title: parsed.title,
+              sop_citations: parsed.citations || [],
+              corrosion_rates: parsed.corrosion_rates || [],
+              pid_tags: parsed.pid_tags || [],
+            },
+            ...parsed,
+          },
+          'HITL',
+          'Awaiting engineer review before deliverable generation'
+        );
+      } catch (err) {
+        console.warn('[SSE] Failed to parse agent_hitl:', err);
+      }
+    });
+
     this.eventSource.addEventListener('loop_kill', (e: MessageEvent) => {
       try {
         const parsed = JSON.parse(e.data);
@@ -166,4 +198,4 @@ export class KavachSSEClient {
   }
 }
 
-export const sseClient = new KavachSSEClient();
+export const sseClient = new SwaraSSEClient();

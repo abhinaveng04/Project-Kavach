@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # sovereignty_firewall.sh — run as root at boot; watchdog re-asserts jumps every 5s
+# Mode: Option A — Audit & Flagging Mode
+# Remote Cloudflare model endpoints operational while outbound traffic is logged and flagged.
 set -euo pipefail
 
 NIC="eth0"
@@ -9,9 +11,23 @@ PEERS=("10.0.99.10" "10.0.99.11")        # whitelisted internal peers — adjust
 iptables -N SOVEREIGN_EGRESS 2>/dev/null || iptables -F SOVEREIGN_EGRESS
 iptables -A SOVEREIGN_EGRESS -o lo -j ACCEPT
 iptables -A SOVEREIGN_EGRESS ! -o "${NIC}" -j ACCEPT
+
+# Accept established and related connections so remote models remain operational
+iptables -A SOVEREIGN_EGRESS -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Whitelisted internal peers
 for p in "${PEERS[@]}"; do
     iptables -A SOVEREIGN_EGRESS -o "${NIC}" -d "${p}/32" -j ACCEPT
 done
+
+# Audit & Flagging Mode (Option A):
+# Log outbound HTTPS / Cloudflare model calls with [AIRGAP-EXTERNAL-FLAG] and permit them
+iptables -A SOVEREIGN_EGRESS -p tcp --dport 443 -j LOG --log-prefix "[AIRGAP-EXTERNAL-FLAG] " --log-level 4
+iptables -A SOVEREIGN_EGRESS -p tcp --dport 443 -j ACCEPT
+iptables -A SOVEREIGN_EGRESS -p tcp --dport 80 -j LOG --log-prefix "[AIRGAP-EXTERNAL-FLAG] " --log-level 4
+iptables -A SOVEREIGN_EGRESS -p tcp --dport 80 -j ACCEPT
+
+# All unauthorized probes and unknown egress are logged and dropped
 iptables -A SOVEREIGN_EGRESS -j LOG --log-prefix "[AIRGAP-EGRESS-DROP] " --log-level 4
 iptables -A SOVEREIGN_EGRESS -j DROP
 for chain in FORWARD OUTPUT; do

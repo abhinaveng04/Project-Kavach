@@ -43,13 +43,19 @@ logging.basicConfig(
 )
 log = logging.getLogger("sovereign.ingest")
 
+import os
+
 # ---------------------------------------------------------------------------
-# Constants (ARCH §11)
+# Constants (ARCH §11) — read from .env via os.getenv (load_dotenv in main.py)
 # ---------------------------------------------------------------------------
-VISION_URL = "http://127.0.0.1:8081"
-EMBED_URL = "http://127.0.0.1:8083"
+VISION_URL = os.getenv("VISION_URL", "http://127.0.0.1:8081")
+EMBED_URL = os.getenv("EMBEDDING_URL", "http://127.0.0.1:8083")
 CHROMA_DB_PATH = "./chroma_db"
 SQLITE_DB_PATH = "pid_tags.db"
+
+# Firewall flag: all calls to external Cloudflare endpoints are logged
+_FIREWALL_ACTIVE = os.getenv("SOVEREIGN_FIREWALL_DISABLE", "0") != "1"
+
 
 # Chunking Budget: 1000-1200 tokens. Approximated via word counts.
 # 850 words ~ 1100 tokens, 75 words ~ 100 tokens overlap.
@@ -135,11 +141,23 @@ def extract_section(text: str) -> str:
     return m.group(1) if m else "1.0"
 
 def get_embedding(text: str) -> list[float]:
-    """Generate embedding using nomic-embed-text-v1.5 served at port 8083 or 8080."""
-    candidates = [EMBED_URL, "http://127.0.0.1:8080", "http://127.0.0.1:8083"]
-    seen = set()
-    urls = [u for u in candidates if not (u in seen or seen.add(u))]
-    for url in urls:
+    """Generate embedding using nomic-embed-text-v1.5 via EMBEDDING_URL (/v1/embeddings).
+
+    When the firewall is ACTIVE (SOVEREIGN_FIREWALL_DISABLE=0), all calls to
+    external Cloudflare endpoints are flagged [AIRGAP-EXTERNAL-FLAG] in the log.
+    """
+    primary_url = EMBED_URL
+    fallbacks = ["http://127.0.0.1:8080", "http://127.0.0.1:8083"]
+    candidates = [primary_url] + [u for u in fallbacks if u != primary_url]
+
+    for url in candidates:
+        is_external = not (url.startswith("http://127.") or url.startswith("http://localhost"))
+        if is_external and _FIREWALL_ACTIVE:
+            log.warning(
+                "[AIRGAP-EXTERNAL-FLAG] Embedding call → %s/v1/embeddings "
+                "(SOVEREIGN_FIREWALL_DISABLE=0, external endpoint flagged)",
+                url,
+            )
         try:
             resp = httpx.post(
                 f"{url}/v1/embeddings",
@@ -150,10 +168,13 @@ def get_embedding(text: str) -> list[float]:
                 return resp.json()["data"][0]["embedding"]
         except Exception:
             continue
+
+    # Deterministic SHA-256 fallback vector (768-dim)
     import hashlib
     h = hashlib.sha256(text.encode("utf-8")).digest()
     vec = [float((b - 128) / 128.0) for b in h] * 24
     return vec[:768]
+
 
 def store_in_chroma(chunks: list[str], doc_name: str, page_num: int):
     """Store chunks in ChromaDB with metadata for SOP-REF citation contract."""

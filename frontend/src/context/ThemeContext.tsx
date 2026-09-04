@@ -52,23 +52,25 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeType>(() => {
-    return (localStorage.getItem('kavach_theme') as ThemeType) || 'dark';
+    return (localStorage.getItem('swara_theme') as ThemeType) || 'dark';
   });
 
   const [accentColor, setAccentColorState] = useState<AccentColorType>(() => {
-    return (localStorage.getItem('kavach_accent') as AccentColorType) || 'purple';
+    return (localStorage.getItem('swara_accent') as AccentColorType) || 'purple';
   });
 
   const [density, setDensityState] = useState<DensityType>(() => {
-    return (localStorage.getItem('kavach_density') as DensityType) || 'normal';
+    return (localStorage.getItem('swara_density') as DensityType) || 'normal';
   });
 
   const [soundEnabled, setSoundEnabledState] = useState<boolean>(() => {
-    return localStorage.getItem('kavach_sound') !== 'false';
+    const swaraVal = localStorage.getItem('swara_sound');
+    return swaraVal !== null ? swaraVal !== 'false' : true;
   });
 
   const [strictAirGap, setStrictAirGapState] = useState<boolean>(() => {
-    return localStorage.getItem('kavach_strict_airgap') !== 'false';
+    const swaraVal = localStorage.getItem('swara_strict_airgap');
+    return swaraVal !== null ? swaraVal !== 'false' : true;
   });
 
   const isDark = theme !== 'light';
@@ -83,7 +85,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       root.classList.remove('light');
       root.classList.add('dark');
     }
-    localStorage.setItem('kavach_theme', theme);
+    localStorage.setItem('swara_theme', theme);
   }, [theme]);
 
   useEffect(() => {
@@ -92,13 +94,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const colorInfo = ACCENT_PALETTE[accentColor] || ACCENT_PALETTE.purple;
     root.style.setProperty('--accent-primary', colorInfo.hex);
     root.style.setProperty('--accent-glow', colorInfo.glow);
-    localStorage.setItem('kavach_accent', accentColor);
+    localStorage.setItem('swara_accent', accentColor);
   }, [accentColor]);
 
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-density', density);
-    localStorage.setItem('kavach_density', density);
+    localStorage.setItem('swara_density', density);
   }, [density]);
 
   const setTheme = (newTheme: ThemeType) => {
@@ -119,12 +121,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setSoundEnabled = (val: boolean) => {
     setSoundEnabledState(val);
-    localStorage.setItem('kavach_sound', String(val));
+    localStorage.setItem('swara_sound', String(val));
   };
 
   const setStrictAirGap = (val: boolean) => {
     setStrictAirGapState(val);
-    localStorage.setItem('kavach_strict_airgap', String(val));
+    localStorage.setItem('swara_strict_airgap', String(val));
   };
 
   return (

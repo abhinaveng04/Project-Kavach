@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] model.server — %(message)s")
 log = logging.getLogger("model.server")
 
-app = FastAPI(title="Kavach Sovereign Local Model Server", version="1.0.0")
+app = FastAPI(title="Swara.ai Sovereign Local Model Server", version="1.0.0")
 
 _llm = None
 MODEL_PATHS = [
@@ -66,7 +66,7 @@ def get_llm():
             return None
 
         log.info("Loading GGUF model from %s...", target_model)
-        n_ctx_val = int(os.environ.get("KAVACH_N_CTX", "12288"))
+        n_ctx_val = int(os.environ.get("SWARA_N_CTX", "12288"))
         try:
             _llm = llama_cpp.Llama(
                 model_path=str(target_model),
@@ -226,7 +226,7 @@ async def health():
         "model_loaded": _llm is not None or any(p.is_file() for p in MODEL_PATHS),
         "finalizer_loaded": _finalizer_llm is not None or Path("models/finalizer/Qwen3-0.6B-Q8_0.gguf").is_file(),
         "embedding_loaded": _embed_llm is not None or Path("models/embedding/nomic-embed-text-v1.5.Q8_0.gguf").is_file(),
-        "service": "kavach-model-inference",
+        "service": "swara-model-inference",
         "port": 8080,
     })
 

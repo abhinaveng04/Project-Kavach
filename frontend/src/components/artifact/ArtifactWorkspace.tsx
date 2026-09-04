@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   UploadCloud,
   Sparkles,
+  Table2,
 } from 'lucide-react';
 import { ArtifactResponse, CitationItem } from '../../types/api';
 import { ChatMessage } from '../../types/workbench';
@@ -41,7 +42,7 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
   onSelectArtifact,
   onSelectDocument,
 }) => {
-  const [activeTab, setActiveTab] = useState<'preview' | 'artifacts'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'artifacts' | 'spreadsheet'>('preview');
   const [isMaximized, setIsMaximized] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'uploaded' | 'generated'>('all');
@@ -49,7 +50,7 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
   // Resizable panel width state
   const [width, setWidth] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('kavach_canvas_width');
+      const saved = localStorage.getItem('swara_canvas_width');
       if (saved) {
         const val = parseInt(saved, 10);
         if (!isNaN(val) && val >= 360 && val <= 1400) {
@@ -101,7 +102,7 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem('kavach_canvas_width', width.toString());
+      localStorage.setItem('swara_canvas_width', width.toString());
     } catch {}
   }, [width]);
 
@@ -293,6 +294,19 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
             <Boxes className="w-3.5 h-3.5 text-purple-400" />
             <span>Artifacts ({allChatFiles.length})</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('spreadsheet')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+              activeTab === 'spreadsheet'
+                ? 'bg-[#38383c] text-white shadow-sm'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+            title="Download or preview Excel calculation deliverable"
+          >
+            <Table2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Spreadsheet</span>
+          </button>
         </div>
 
         {/* Right Window Actions */}
@@ -318,6 +332,36 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#18181b]">
         {activeTab === 'preview' && (
           <DocumentViewer artifact={artifact} content={artifact.content} />
+        )}
+
+        {activeTab === 'spreadsheet' && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-5">
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+              <Table2 className="w-8 h-8 text-emerald-400" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-white text-sm">Excel Calculation Deliverable</h4>
+              <p className="text-xs text-zinc-400 mt-1 max-w-xs">
+                Download the structured calculations spreadsheet (bold headers, zebra-striped rows, numeric alignment).
+                Requires HITL approval to unlock.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5 w-full max-w-xs">
+              <a
+                href={`/api/artifact/${artifact.artifact_id}/xlsx`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-all shadow-md active:scale-95"
+                title="Download Excel spreadsheet (requires HITL approval)"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Calculations (.xlsx)</span>
+              </a>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                Task ID: {artifact.artifact_id} · Swara.ai Industrial Calculations
+              </p>
+            </div>
+          </div>
         )}
 
         {activeTab === 'artifacts' && (
@@ -487,7 +531,7 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
                     {searchQuery ? 'No matching files found.' : 'No files uploaded or generated in this chat yet.'}
                   </p>
                   <p className="text-[11px] text-zinc-500">
-                    Attach documents/images or ask KAVACH to draft an engineering deliverable.
+                    Attach documents/images or ask Swara.ai to draft an engineering deliverable.
                   </p>
                 </div>
               )}

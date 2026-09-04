@@ -74,13 +74,13 @@ export const StartupSequence: React.FC<StartupSequenceProps> = ({ status, onComp
             xmlns="http://www.w3.org/2000/svg"
           >
             <defs>
-              <linearGradient id="kavachGeminiGrad" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+              <linearGradient id="swaraGeminiGrad" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#4a9eff" />
                 <stop offset="40%" stopColor="#9d72ff" />
                 <stop offset="75%" stopColor="#f43f5e" />
                 <stop offset="100%" stopColor="#f59e0b" />
               </linearGradient>
-              <linearGradient id="kavachGeminiSatelliteGrad" x1="33" y1="6" x2="43" y2="16" gradientUnits="userSpaceOnUse">
+              <linearGradient id="swaraGeminiSatelliteGrad" x1="33" y1="6" x2="43" y2="16" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#9d72ff" />
                 <stop offset="100%" stopColor="#f43f5e" />
               </linearGradient>
@@ -89,13 +89,13 @@ export const StartupSequence: React.FC<StartupSequenceProps> = ({ status, onComp
             {/* Primary 4-Point Gemini Star */}
             <path
               d="M 24 2 C 24 14.15 33.85 24 46 24 C 33.85 24 24 33.85 24 46 C 24 33.85 14.15 24 2 24 C 14.15 24 24 14.15 24 2 Z"
-              fill="url(#kavachGeminiGrad)"
+              fill="url(#swaraGeminiGrad)"
             />
 
             {/* Satellite Companion Sparkle */}
             <path
               d="M 38 6 C 38 8.76 40.24 11 43 11 C 40.24 11 38 13.24 38 16 C 38 13.24 35.76 11 33 11 C 35.76 11 38 8.76 38 6 Z"
-              fill="url(#kavachGeminiSatelliteGrad)"
+              fill="url(#swaraGeminiSatelliteGrad)"
               className="animate-gemini-satellite"
             />
           </svg>
@@ -105,7 +105,7 @@ export const StartupSequence: React.FC<StartupSequenceProps> = ({ status, onComp
         <div className="space-y-2 pt-1">
           <div className="flex items-center justify-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight shimmer-wave-text drop-shadow-sm font-sans">
-              KAVACH
+              SWARA.AI
             </h1>
             <span
               className={`text-[10px] font-mono px-2 py-0.5 rounded-full border shadow-sm font-medium tracking-wide ${

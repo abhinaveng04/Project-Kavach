@@ -30,6 +30,7 @@ import {
   ACCENT_PALETTE,
 } from '../../context/ThemeContext';
 import { cn } from '../../utils/cn';
+import { api } from '../../api/client';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -137,20 +138,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<TabType>('appearance');
   const [pingStatus, setPingStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [pingLatency, setPingLatency] = useState<number | null>(null);
+  const [modelStatuses, setModelStatuses] = useState<Record<string, { reachable: boolean; status: string; latency_ms: number }>>({});
 
   const handlePingServer = async () => {
     setPingStatus('testing');
     const start = performance.now();
     try {
-      const res = await fetch('http://127.0.0.1:8080/v1/models', { method: 'GET' }).catch(() => null);
+      const res = await api.getSystemDiagnostics();
       const elapsed = Math.round(performance.now() - start);
       setPingLatency(elapsed);
-      if (res && (res.ok || res.status === 200)) {
-        setPingStatus('success');
+      if (res && res.models) {
+        setModelStatuses(res.models);
+        const anyOnline = Object.values(res.models).some((m) => m.reachable);
+        setPingStatus(anyOnline ? 'success' : 'error');
       } else {
-        const res2 = await fetch('/', { method: 'GET' });
-        if (res2.ok) setPingStatus('success');
-        else setPingStatus('error');
+        setPingStatus('error');
       }
     } catch {
       setPingStatus('error');
@@ -574,9 +576,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             {activeTab === 'compute' && (
               <div className="space-y-6 animate-fade-in">
                 <div>
-                  <h4 className="text-base font-semibold text-zinc-900 dark:text-white tracking-tight">Models & Local Inference</h4>
+                  <h4 className="text-base font-semibold text-zinc-900 dark:text-white tracking-tight">Models &amp; Remote Specialist Inference</h4>
                   <p className="text-[12px] text-zinc-600 dark:text-zinc-400 mt-0.5">
-                    Status of local sovereign model servers running on 127.0.0.1.
+                    Live reachability and latency of remote sovereign model daemons over Cloudflare tunnels.
                   </p>
                 </div>
 
@@ -584,9 +586,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <div className="p-4 rounded-2xl bg-[#f7f5f0] dark:bg-[#252528] border border-zinc-200 dark:border-white/[0.08] space-y-3 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h5 className="font-semibold text-zinc-900 dark:text-white text-xs">Local Inference Daemons</h5>
+                      <h5 className="font-semibold text-zinc-900 dark:text-white text-xs">Remote Inference Daemons</h5>
                       <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                        {pingLatency !== null ? `Last response latency: ${pingLatency}ms` : 'Check reachability of local model servers'}
+                        {pingLatency !== null ? `Diagnostics probe latency: ${pingLatency}ms` : 'Check reachability of all 5 specialist models'}
                       </p>
                     </div>
                     <button
@@ -597,7 +599,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                       {pingStatus === 'testing' && <span className="animate-spin">⟳</span>}
                       {pingStatus === 'success' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
                       {pingStatus === 'error' && <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />}
-                      <span>{pingStatus === 'idle' ? 'Ping Daemons' : pingStatus.toUpperCase()}</span>
+                      <span>{pingStatus === 'idle' ? 'Probe Daemons' : pingStatus.toUpperCase()}</span>
                     </button>
                   </div>
 
@@ -606,19 +608,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     <div className="p-3 rounded-xl bg-white dark:bg-[#1e1e22] border border-zinc-200 dark:border-white/[0.06] space-y-1 shadow-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-700 dark:text-zinc-400 font-bold">ORCHESTRATOR / CEO</span>
-                        <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">PORT 8080</span>
+                        {modelStatuses['deep_brain'] ? (
+                          modelStatuses['deep_brain'].reachable ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">
+                              ONLINE · {modelStatuses['deep_brain'].latency_ms.toFixed(0)}ms
+                            </span>
+                          ) : (
+                            <span className="text-rose-700 dark:text-rose-400 text-[10px] bg-rose-500/15 px-1.5 py-0.5 rounded font-bold">UNREACHABLE</span>
+                          )
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">CLOUDFLARE /v1</span>
+                        )}
                       </div>
-                      <div className="text-zinc-900 dark:text-white font-semibold text-xs">Qwen3-1.7B GGUF</div>
-                      <div className="text-[10px] text-zinc-500">24 GPU Layers offloaded to RTX 2050</div>
+                      <div className="text-zinc-900 dark:text-white font-semibold text-xs">Qwen2.5-7B-Instruct</div>
+                      <div className="text-[10px] text-zinc-500">Remote Kaggle GPU Pool (Dual T4/P100 · 24GB VRAM)</div>
                     </div>
 
                     <div className="p-3 rounded-xl bg-white dark:bg-[#1e1e22] border border-zinc-200 dark:border-white/[0.06] space-y-1 shadow-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-700 dark:text-zinc-400 font-bold">MULTIMODAL VISION</span>
-                        <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">PORT 8081</span>
+                        {modelStatuses['vision'] ? (
+                          modelStatuses['vision'].reachable ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">
+                              ONLINE · {modelStatuses['vision'].latency_ms.toFixed(0)}ms
+                            </span>
+                          ) : (
+                            <span className="text-rose-700 dark:text-rose-400 text-[10px] bg-rose-500/15 px-1.5 py-0.5 rounded font-bold">UNREACHABLE</span>
+                          )
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">CLOUDFLARE /v1</span>
+                        )}
                       </div>
-                      <div className="text-zinc-900 dark:text-white font-semibold text-xs">Qwen2.5-VL-3B-Instruct</div>
-                      <div className="text-[10px] text-zinc-500">Smart 448px downscaling (7-11s latency)</div>
+                      <div className="text-zinc-900 dark:text-white font-semibold text-xs">Qwen2.5-VL-7B-Instruct</div>
+                      <div className="text-[10px] text-zinc-500">Full-Resolution P&amp;ID Tag &amp; Equipment OCR</div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white dark:bg-[#1e1e22] border border-zinc-200 dark:border-white/[0.06] space-y-1 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-700 dark:text-zinc-400 font-bold">CODE &amp; CALCULATION</span>
+                        {modelStatuses['coder'] ? (
+                          modelStatuses['coder'].reachable ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">
+                              ONLINE · {modelStatuses['coder'].latency_ms.toFixed(0)}ms
+                            </span>
+                          ) : (
+                            <span className="text-rose-700 dark:text-rose-400 text-[10px] bg-rose-500/15 px-1.5 py-0.5 rounded font-bold">UNREACHABLE</span>
+                          )
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">CLOUDFLARE /v1</span>
+                        )}
+                      </div>
+                      <div className="text-zinc-900 dark:text-white font-semibold text-xs">Qwen2.5-Coder-7B-Instruct</div>
+                      <div className="text-[10px] text-zinc-500">Deterministic Sandbox Python Execution</div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white dark:bg-[#1e1e22] border border-zinc-200 dark:border-white/[0.06] space-y-1 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-700 dark:text-zinc-400 font-bold">ROUTER / JUDGE</span>
+                        {modelStatuses['fast_brain'] ? (
+                          modelStatuses['fast_brain'].reachable ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">
+                              ONLINE · {modelStatuses['fast_brain'].latency_ms.toFixed(0)}ms
+                            </span>
+                          ) : (
+                            <span className="text-rose-700 dark:text-rose-400 text-[10px] bg-rose-500/15 px-1.5 py-0.5 rounded font-bold">UNREACHABLE</span>
+                          )
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">CLOUDFLARE /v1</span>
+                        )}
+                      </div>
+                      <div className="text-zinc-900 dark:text-white font-semibold text-xs">Qwen2.5-3B-Instruct</div>
+                      <div className="text-[10px] text-zinc-500">Sub-1500ms Constrained JSON Classification</div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-white dark:bg-[#1e1e22] border border-zinc-200 dark:border-white/[0.06] space-y-1 shadow-sm sm:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-700 dark:text-zinc-400 font-bold">SOVEREIGN RAG EMBEDDINGS</span>
+                        {modelStatuses['embedding'] ? (
+                          modelStatuses['embedding'].reachable ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">
+                              ONLINE · {modelStatuses['embedding'].latency_ms.toFixed(0)}ms
+                            </span>
+                          ) : (
+                            <span className="text-rose-700 dark:text-rose-400 text-[10px] bg-rose-500/15 px-1.5 py-0.5 rounded font-bold">UNREACHABLE</span>
+                          )
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400 text-[10px] bg-emerald-500/15 px-1.5 py-0.5 rounded font-bold">CLOUDFLARE /v1</span>
+                        )}
+                      </div>
+                      <div className="text-zinc-900 dark:text-white font-semibold text-xs">nomic-embed-text-v1.5</div>
+                      <div className="text-[10px] text-zinc-500">768-dim Dense Embeddings for SOP &amp; P&amp;ID Chunks</div>
                     </div>
                   </div>
                 </div>
@@ -687,7 +766,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <div className="p-4 rounded-2xl bg-[#f7f5f0] dark:bg-[#252528] border border-zinc-200 dark:border-white/[0.08] space-y-3 shadow-sm">
                   <div className="flex items-center gap-2 text-zinc-900 dark:text-white font-semibold text-sm">
                     <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span>Project KAVACH Sovereign AI</span>
+                    <span>Swara.ai Sovereign AI</span>
                   </div>
                   <div className="space-y-2 text-zinc-700 dark:text-zinc-300 leading-relaxed text-xs">
                     <p>
@@ -701,7 +780,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   <div className="pt-2 border-t border-zinc-200 dark:border-white/[0.06] grid grid-cols-2 gap-3 text-[11px] font-mono">
                     <div>
                       <span className="text-zinc-500 block text-[10px]">SOVEREIGN BUILD</span>
-                      <span className="text-zinc-900 dark:text-zinc-200 font-semibold">KAVACH v2.4.0-PROD</span>
+                      <span className="text-zinc-900 dark:text-zinc-200 font-semibold">Swara.ai v3.0.0</span>
                     </div>
                     <div>
                       <span className="text-zinc-500 block text-[10px]">ARCHITECTURE</span>

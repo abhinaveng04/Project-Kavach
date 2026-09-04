@@ -208,3 +208,101 @@ def render_spreadsheet(task_id: str, records: list[dict] = None, summary_metrics
     wb.save(out_path)
     return out_path
 
+
+def render_excel_deliverable(task_id: str, data: list[dict], out: str = None) -> str:
+    """
+    Render generic tabular data to artifacts/{task_id}_calculations.xlsx.
+
+    Features:
+      - Bold, dark-blue header row (auto-detected from dict keys)
+      - Alternating row zebra-stripe (white / light-gray)
+      - Numeric columns right-aligned; text columns left-aligned
+      - Auto-width columns (capped at 50 chars)
+      - Frozen pane at row 4 (below title + header)
+      - Returns absolute path to the saved file.
+
+    Args:
+        task_id: Unique task identifier used in the filename.
+        data:    List of dicts (each dict is one row; keys = column headers).
+        out:     Optional custom output path.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Swara.ai Calculations"
+
+    os.makedirs("artifacts", exist_ok=True)
+    out_path = os.path.abspath(out) if out else os.path.abspath(f"artifacts/{task_id}_calculations.xlsx")
+
+    if not data:
+        wb.save(out_path)
+        return out_path
+
+    # ── Styles ────────────────────────────────────────────────────────────
+    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    zebra_fill  = PatternFill(start_color="F2F7FB", end_color="F2F7FB", fill_type="solid")
+    thin_side   = Side(style="thin", color="D0D7E0")
+    thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+
+    headers = list(data[0].keys())
+
+    # ── Title banner (row 1) ──────────────────────────────────────────────
+    banner_col = get_column_letter(len(headers))
+    ws.merge_cells(f"A1:{banner_col}1")
+    ws["A1"] = "Swara.ai — Sovereign Industrial Calculations"
+    ws["A1"].font = Font(name="Calibri", size=13, bold=True, color="1F4E79")
+    ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[1].height = 28
+
+    # ── Header row (row 3) ────────────────────────────────────────────────
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col_idx, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = thin_border
+    ws.row_dimensions[3].height = 22
+
+    # ── Detect numeric columns ────────────────────────────────────────────
+    numeric_cols: set[int] = set()
+    for row_data in data:
+        for col_idx, key in enumerate(headers, 1):
+            val = row_data.get(key)
+            if isinstance(val, (int, float)):
+                numeric_cols.add(col_idx)
+
+    # ── Data rows with zebra striping ─────────────────────────────────────
+    for row_idx, row_data in enumerate(data, 4):
+        is_even = (row_idx % 2 == 0)
+        for col_idx, key in enumerate(headers, 1):
+            val = row_data.get(key, "")
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = thin_border
+            if is_even:
+                cell.fill = zebra_fill
+            if col_idx in numeric_cols:
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+                if isinstance(val, float):
+                    cell.number_format = "#,##0.0000"
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    # ── Auto-width columns ────────────────────────────────────────────────
+    for col_idx, header in enumerate(headers, 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = len(str(header))
+        for row_data in data:
+            val = row_data.get(header, "")
+            max_len = max(max_len, len(str(val)))
+        ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 50)
+
+    # ── Freeze panes below header ─────────────────────────────────────────
+    ws.freeze_panes = "A4"
+
+    wb.save(out_path)
+    log.info("[EXPORTER] Excel deliverable saved: %s (%d rows)", out_path, len(data))
+    return out_path

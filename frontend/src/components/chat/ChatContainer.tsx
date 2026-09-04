@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowDown } from 'lucide-react';
-import { ChatMessage } from '../../types/workbench';
+import { ChatMessage, ExecutionTimelineStep } from '../../types/workbench';
 import { ArtifactResponse, CitationItem } from '../../types/api';
 import { UserMessageCard } from './UserMessageCard';
 import { AssistantMessageCard } from './AssistantMessageCard';
+import { ExecutionTimeline } from './ExecutionTimeline';
 
 interface ChatContainerProps {
   messages: ChatMessage[];
@@ -12,6 +13,7 @@ interface ChatContainerProps {
   onSelectDocument?: (filename: string) => void;
   onApproveAction: (actionId: string) => Promise<void>;
   onRejectAction: (actionId: string, reason?: string) => Promise<void>;
+  timelineSteps?: ExecutionTimelineStep[];
 }
 
 export const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -21,6 +23,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   onSelectDocument,
   onApproveAction,
   onRejectAction,
+  timelineSteps = [],
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
@@ -49,10 +52,19 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     if (autoScroll && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, autoScroll]);
+  }, [messages, timelineSteps, autoScroll]);
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0 bg-[#161619] overflow-hidden">
+      {/* Execution Timeline — shown above messages when steps are present */}
+      {timelineSteps.length > 0 && (
+        <div className="shrink-0 px-4 md:px-8 pt-4">
+          <div className="max-w-3xl mx-auto">
+            <ExecutionTimeline steps={timelineSteps} />
+          </div>
+        </div>
+      )}
+
       {/* Scrollable Messages Stream */}
       <div
         ref={scrollRef}

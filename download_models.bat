@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title KAVACH - Sovereign Model Downloader
+title Swara.ai - Sovereign Model Downloader
 cd /d "%~dp0"
 
 echo ======================================================================
-echo   KAVACH - Sovereign Model Downloader
+echo   Swara.ai - Sovereign Model Downloader
 echo   Automated Environment Setup and Model Retrieval
 echo ======================================================================
 echo.
@@ -46,7 +46,7 @@ if errorlevel 1 (
 
 echo.
 echo ======================================================================
-echo   Setup finished. You can now launch KAVACH with run.bat
+echo   Setup finished. You can now launch Swara.ai with run.bat
 echo ======================================================================
 echo.
 pause

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, ShieldCheck } from 'lucide-react';
 import { Sidebar } from './Sidebar';
-import { TopBar } from './TopBar';
+import { TopBar, ModelOverrideKey } from './TopBar';
 import { ChatContainer } from '../chat/ChatContainer';
 import { Composer } from '../chat/Composer';
 import { ArtifactWorkspace } from '../artifact/ArtifactWorkspace';
@@ -22,7 +22,7 @@ import {
   SessionResponse,
   SystemStatusResponse,
 } from '../../types/api';
-import { ChatMessage, SidebarSection } from '../../types/workbench';
+import { ChatMessage, SidebarSection, ExecutionTimelineStep } from '../../types/workbench';
 
 interface AppLayoutProps {
   systemStatus: SystemStatusResponse | null;
@@ -34,7 +34,7 @@ interface AppLayoutProps {
   artifactsList: ArtifactResponse[];
   selectedArtifact: ArtifactResponse | null;
   inspectedCitation: CitationItem | null;
-  onSendMessage: (message: string, attachments: string[]) => void;
+  onSendMessage: (message: string, attachments: string[], modelOverride?: ModelOverrideKey) => void;
   onNewSession: () => void;
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string, e: React.MouseEvent) => void;
@@ -49,6 +49,9 @@ interface AppLayoutProps {
   egressPassed: boolean | null;
   onFileUploaded: (resp: FileUploadResponse) => void;
   onSelectDocument?: (filename: string) => void;
+  modelOverride: ModelOverrideKey;
+  onModelOverrideChange: (val: ModelOverrideKey) => void;
+  timelineSteps?: ExecutionTimelineStep[];
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -76,6 +79,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   egressPassed,
   onFileUploaded,
   onSelectDocument,
+  modelOverride,
+  onModelOverrideChange,
+  timelineSteps = [],
 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>('chat');
@@ -185,6 +191,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         isTestingEgress={isTestingEgress}
         egressPassed={egressPassed}
         onOpenSettings={() => setSettingsModalOpen(true)}
+        modelOverride={modelOverride}
+        onModelOverrideChange={onModelOverrideChange}
       />
 
       {/* Main Workspace */}
@@ -232,46 +240,59 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             </div>
           )}
 
-          {messages.length === 0 ? (
-            <IdleWorkbench
-              onSelectPrompt={(p) => onSendMessage(p, attachedFiles)}
-              onOpenUpload={() => setIngestionModalOpen(true)}
-              onAddAttachment={handleAddAttachment}
-            />
-          ) : (
-            <ChatContainer
-              messages={messages}
-              onInspectCitation={onInspectCitation}
-              onSelectArtifact={onSelectArtifact}
-              onSelectDocument={onSelectDocument}
-              onApproveAction={onApproveAction}
-              onRejectAction={onRejectAction}
-            />
-          )}
+          {/* Scrollable conversation or idle area */}
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+            {messages.length === 0 ? (
+              <IdleWorkbench
+                onSelectPrompt={(p) => onSendMessage(p, attachedFiles, modelOverride)}
+                onOpenUpload={() => setIngestionModalOpen(true)}
+                onAddAttachment={handleAddAttachment}
+              />
+            ) : (
+              <ChatContainer
+                messages={messages}
+                onInspectCitation={onInspectCitation}
+                onSelectArtifact={onSelectArtifact}
+                onSelectDocument={onSelectDocument}
+                onApproveAction={onApproveAction}
+                onRejectAction={onRejectAction}
+                timelineSteps={timelineSteps}
+              />
+            )}
+          </div>
 
-          {/* Composer */}
-          <Composer
-            onSendMessage={(msg, files) => {
-              onSendMessage(msg, files);
-              setAttachedFiles([]);
-            }}
-            isExecuting={isExecuting}
-            attachedFiles={attachedFiles}
-            uploadingFiles={uploadingFiles}
-            onAddAttachment={handleAddAttachment}
-            onRemoveAttachment={handleRemoveAttachment}
-            onSelectAttachment={onSelectDocument}
-          />
+          {/* Composer - pinned bottom */}
+          <div className="flex-shrink-0">
+            <Composer
+              onSendMessage={(msg, files, override) => {
+                onSendMessage(msg, files, override || modelOverride);
+                setAttachedFiles([]);
+              }}
+              isExecuting={isExecuting}
+              attachedFiles={attachedFiles}
+              uploadingFiles={uploadingFiles}
+              onAddAttachment={handleAddAttachment}
+              onRemoveAttachment={handleRemoveAttachment}
+              onSelectAttachment={onSelectDocument}
+              modelOverride={modelOverride}
+              onModelOverrideChange={onModelOverrideChange}
+            />
+          </div>
         </main>
 
         {/* 3. Right Region (Work Output & Artifact Canvas) */}
-        {selectedArtifact && (
+        {Boolean(selectedArtifact || (activeSection === 'artifacts' && artifactsList.length > 0)) && !(messages.length === 0 && !selectedArtifact) && (
           <ArtifactWorkspace
-            artifact={selectedArtifact}
+            artifact={selectedArtifact || artifactsList[0]}
             artifactsList={artifactsList}
             citations={allCitations}
             messages={messages}
-            onClose={onCloseArtifact}
+            onClose={() => {
+              onCloseArtifact();
+              if (activeSection === 'artifacts') {
+                setActiveSection('chat');
+              }
+            }}
             onSelectArtifact={onSelectArtifact}
             onSelectDocument={onSelectDocument}
             onInspectCitation={onInspectCitation}

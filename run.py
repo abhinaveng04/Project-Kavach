@@ -1,4 +1,4 @@
-"""Master Single-Command Launcher for Project-Kavach.
+"""Master Single-Command Launcher for Swara.ai.
 Launches:
   1. Local Model Server (llama_cpp Qwen 2.5 on :8080)
   2. Orchestrator Backend & Web UI (FastAPI on :8000)
@@ -37,7 +37,7 @@ def banner():
             pass
     print(r"""
  ======================================================================
-   [#] KAVACH -- Sovereign On-Premise Agentic AI Workbench
+   [#] Swara.ai -- Sovereign On-Premise Agentic AI Workbench
    MoPNG / MRPL (SIH26117)
  ======================================================================
    * Air-Gapped Localhost Enforcement : ACTIVE
@@ -104,11 +104,11 @@ def main():
         )
         procs.append(backend_proc)
 
-        print("\n>>> KAVACH is running! Press CTRL+C at any time to shut down.\n")
+        print("\n>>> Swara.ai is running! Press CTRL+C at any time to shut down.\n")
         backend_proc.wait()
 
     except KeyboardInterrupt:
-        print("\n[SHUTDOWN] Stopping Kavach services...")
+        print("\n[SHUTDOWN] Stopping Swara.ai services...")
     finally:
         for p in procs:
             try:

@@ -8,11 +8,25 @@ import {
   CitationItem,
   FileUploadResponse,
   HardwareProfileStatus,
+  PendingApproval,
   SessionResponse,
   SystemStatusResponse,
 } from './types/api';
 import { AgentEvent, AgentEventType } from './types/events';
 import { ChatMessage, ExecutionTimelineStep, ToolRunInfo } from './types/workbench';
+import { ModelOverrideKey } from './components/layout/TopBar';
+import { HITLApprovalCard } from './components/chat/HITLApprovalCard';
+
+const DEFAULT_TIMELINE_STAGES: ExecutionTimelineStep[] = [
+  { id: 'stage-plan', name: 'PLAN', label: 'Plan & Analysis', status: 'pending' },
+  { id: 'stage-route', name: 'ROUTE', label: 'Specialist Router', status: 'pending' },
+  { id: 'stage-vision', name: 'VISION', label: 'Multimodal Vision', status: 'pending' },
+  { id: 'stage-rag', name: 'RAG', label: 'SOP & Citation RAG', status: 'pending' },
+  { id: 'stage-coder', name: 'CODER', label: 'Calculation & Code', status: 'pending' },
+  { id: 'stage-reflect', name: 'REFLECT', label: 'Self-Reflection', status: 'pending' },
+  { id: 'stage-hitl', name: 'HITL', label: 'Human Gate', status: 'pending' },
+  { id: 'stage-finalize', name: 'FINALIZE', label: 'Final Output', status: 'pending' },
+];
 
 export function App() {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -24,13 +38,18 @@ export function App() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [artifactsList, setArtifactsList] = useState<ArtifactResponse[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactResponse | null>(null);
+  const [pendingApprovalTask, setPendingApprovalTask] = useState<PendingApproval | null>(null);
   const [inspectedCitation, setInspectedCitation] = useState<CitationItem | null>(null);
   const [isTestingEgress, setIsTestingEgress] = useState(false);
   const [egressPassed, setEgressPassed] = useState<boolean | null>(null);
+  // Model override — "auto" uses the 3-layer intelligent router
+  const [modelOverride, setModelOverride] = useState<ModelOverrideKey>('auto');
+  const [timelineSteps, setTimelineSteps] = useState<ExecutionTimelineStep[]>([]);
 
   // 1. Initial boot data fetch with persistence recovery
   useEffect(() => {
-    const cachedSess = localStorage.getItem('kavach_sessions');
+    const cachedSess = localStorage.getItem('swara_sessions');
+
     if (cachedSess) {
       try {
         const parsed = JSON.parse(cachedSess);
@@ -57,12 +76,12 @@ export function App() {
         if (sessList && sessList.length > 0) {
           setSessions(sessList);
           setActiveSessionId((prev) => prev || sessList[0].session_id);
-          localStorage.setItem('kavach_sessions', JSON.stringify(sessList));
+          localStorage.setItem('swara_sessions', JSON.stringify(sessList));
         } else if (!cachedSess) {
           const newSess = await api.createSession('General Engineering Task');
           setSessions([newSess]);
           setActiveSessionId(newSess.session_id);
-          localStorage.setItem('kavach_sessions', JSON.stringify([newSess]));
+          localStorage.setItem('swara_sessions', JSON.stringify([newSess]));
         }
       } catch (err) {
         console.error('Initial boot error:', err);
@@ -119,6 +138,13 @@ export function App() {
 
   // 3. SSE event dispatcher mapping backend states to rich UI elements
   const handleIncomingSSEEvent = (event: AgentEvent) => {
+    const updateGlobalStage = (name: string, status: ExecutionTimelineStep['status'], detail?: string) => {
+      setTimelineSteps((prev) => {
+        if (!prev || prev.length === 0) return prev;
+        return prev.map((s) => (s.name === name ? { ...s, status, detail: detail || s.detail } : s));
+      });
+    };
+
     setMessages((prev) => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
@@ -130,8 +156,20 @@ export function App() {
       const currentObservations = [...(updated.observations || [])];
 
       switch (event.event_type) {
+        case AgentEventType.SESSION_START:
+          updateGlobalStage('PLAN', 'running', 'Planning execution');
+          break;
+
         case AgentEventType.ROUTE_DECISION:
-          updated.taskType = event.data?.task_type || 'conversation';
+          updated.taskType = event.data?.task_type || event.data?.specialist || 'conversation';
+          updateGlobalStage('PLAN', 'completed', 'Plan ready');
+          updateGlobalStage('ROUTE', 'completed', event.message || `Routed to ${updated.taskType}`);
+          {
+            const r = String(event.data?.specialist || updated.taskType).toLowerCase();
+            if (r.includes('vision')) updateGlobalStage('VISION', 'running', 'Multimodal Vision active');
+            else if (r.includes('coder')) updateGlobalStage('CODER', 'running', 'Coder specialist active');
+            else updateGlobalStage('RAG', 'running', 'SOP knowledge retrieval active');
+          }
           currentTimeline.push({
             id: `step-${Date.now()}`,
             name: 'ROUTE',
@@ -142,8 +180,10 @@ export function App() {
           break;
 
         case AgentEventType.AGENT_STEP:
-          if (event.step_name === 'CEO') {
+          if (event.step_name === 'CEO' || event.step_name === 'PLAN') {
             updated.reasoningSummary = event.message || 'Authoritative plan synthesized by CEO model';
+            updateGlobalStage('PLAN', 'completed', event.message || 'Plan created');
+            updateGlobalStage('ROUTE', 'running', 'Evaluating fast-path');
             currentTimeline.push({
               id: `step-${Date.now()}`,
               name: 'PLAN',
@@ -159,8 +199,12 @@ export function App() {
           const toolCat =
             toolName.includes('vision') ? 'vision'
             : toolName.includes('rag') ? 'rag'
-            : toolName.includes('sandbox') || toolName.includes('python') ? 'coder'
+            : toolName.includes('sandbox') || toolName.includes('python') || toolName.includes('coder') ? 'coder'
             : 'document';
+
+          if (toolCat === 'vision') updateGlobalStage('VISION', 'running', `Inspecting diagram`);
+          else if (toolCat === 'coder') updateGlobalStage('CODER', 'running', `Executing calculation`);
+          else if (toolCat === 'rag') updateGlobalStage('RAG', 'running', `Querying SOP`);
 
           currentTools.push({
             id: `tool-${Date.now()}`,
@@ -191,6 +235,11 @@ export function App() {
             currentTools[runningIdx].status = event.data?.status === 'success' ? 'success' : 'error';
             currentTools[runningIdx].output = event.data?.output;
             currentTools[runningIdx].durationMs = event.data?.execution_time_ms;
+
+            const tName = currentTools[runningIdx].toolName.toLowerCase();
+            if (tName.includes('vision')) updateGlobalStage('VISION', 'completed', 'Vision features extracted');
+            else if (tName.includes('coder')) updateGlobalStage('CODER', 'completed', 'Calculation complete');
+            else if (tName.includes('rag')) updateGlobalStage('RAG', 'completed', 'Citations grounded');
           }
 
           if (event.data?.output) {
@@ -212,6 +261,7 @@ export function App() {
 
         case AgentEventType.VERIFICATION:
           updated.verificationPassed = event.data?.passed ?? true;
+          updateGlobalStage('REFLECT', updated.verificationPassed ? 'completed' : 'failed', event.message || 'Verification complete');
           currentTimeline.push({
             id: `step-ver-${Date.now()}`,
             name: 'REFLECT',
@@ -221,15 +271,19 @@ export function App() {
           });
           break;
 
-        case AgentEventType.HITL_REQUEST:
+        case AgentEventType.HITL_REQUEST: {
+          const apprItem: PendingApproval = {
+            action_id: event.data?.action_id || event.data?.task_id || 'act-1',
+            type: event.data?.type || 'create_artifact',
+            description: event.data?.description || event.message || 'Human-in-the-Loop Confirmation Required',
+            details: event.data?.details || event.data,
+          };
+          updateGlobalStage('HITL', 'approval_required', event.message || 'Awaiting engineer review');
           updated.pendingApprovals = [
             ...(updated.pendingApprovals || []),
-            {
-              action_id: event.data?.action_id || 'act-1',
-              type: 'create_artifact',
-              description: event.data?.description || event.message || 'Approval requested',
-            },
+            apprItem,
           ];
+          setPendingApprovalTask(apprItem);
           currentTimeline.push({
             id: `step-hitl-${Date.now()}`,
             name: 'HITL',
@@ -238,6 +292,7 @@ export function App() {
             detail: 'Awaiting engineer review',
           });
           break;
+        }
 
         case AgentEventType.ARTIFACT_CREATED:
           if (event.data) {
@@ -254,13 +309,17 @@ export function App() {
             };
             updated.artifacts = [...(updated.artifacts || []), newArt];
             setArtifactsList((prevArts) => [newArt, ...prevArts.filter((a) => a.artifact_id !== newArt.artifact_id)]);
-            setSelectedArtifact(newArt);
+            setPendingApprovalTask(null);
+            updateGlobalStage('HITL', 'completed');
+            updateGlobalStage('FINALIZE', 'completed', `Deliverable ${newArt.filename} generated`);
           }
           break;
 
         case AgentEventType.FINAL_RESPONSE:
           updated.content = event.data?.final_response || event.message || updated.content;
           updated.isStreaming = false;
+          setPendingApprovalTask(null);
+          updateGlobalStage('FINALIZE', 'completed', 'Output complete');
           currentTimeline.push({
             id: `step-fin-${Date.now()}`,
             name: 'FINALIZE',
@@ -280,8 +339,12 @@ export function App() {
   };
 
   // 4. Send Message Handler
-  const handleSendMessage = async (userText: string, attachedFiles: string[]) => {
+  const handleSendMessage = async (userText: string, attachedFiles: string[], override?: ModelOverrideKey) => {
     if (!userText.trim() || isExecuting) return;
+
+    setTimelineSteps(
+      DEFAULT_TIMELINE_STAGES.map((s, idx) => (idx === 0 ? { ...s, status: 'running' } : { ...s, status: 'pending' }))
+    );
 
     const userMessageId = `user-${Date.now()}`;
     const assistantMessageId = `asst-${Date.now()}`;
@@ -324,6 +387,7 @@ export function App() {
         session_id: activeSessionId || undefined,
         message: userText,
         attachments: attachedFiles,
+        model_override: override || modelOverride,
       });
 
       // Auto-update session title and message count
@@ -343,7 +407,7 @@ export function App() {
           }
           return s;
         });
-        localStorage.setItem('kavach_sessions', JSON.stringify(updated));
+        localStorage.setItem('swara_sessions', JSON.stringify(updated));
         return updated;
       });
 
@@ -438,7 +502,7 @@ export function App() {
       const sess = await api.createSession('New Task');
       setSessions((prev) => {
         const next = [sess, ...prev];
-        localStorage.setItem('kavach_sessions', JSON.stringify(next));
+        localStorage.setItem('swara_sessions', JSON.stringify(next));
         return next;
       });
       setActiveSessionId(sess.session_id);
@@ -460,7 +524,7 @@ export function App() {
       await api.deleteSession(sessionId);
       setSessions((prev) => {
         const next = prev.filter((s) => s.session_id !== sessionId);
-        localStorage.setItem('kavach_sessions', JSON.stringify(next));
+        localStorage.setItem('swara_sessions', JSON.stringify(next));
         if (activeSessionId === sessionId) {
           if (next.length > 0) {
             setActiveSessionId(next[0].session_id);
@@ -477,18 +541,28 @@ export function App() {
 
   // 6. HITL Approval Actions
   const handleApproveAction = async (actionId: string) => {
-    if (!selectedArtifact) return;
+    const taskId = (pendingApprovalTask as any)?.task_id || pendingApprovalTask?.action_id || actionId || selectedArtifact?.artifact_id || activeSessionId || 'memo';
     try {
-      await api.approveArtifact(selectedArtifact.artifact_id, actionId, true);
+      await api.approveArtifact(taskId, actionId, true);
+      setTimelineSteps((prev) =>
+        prev.map((s) => {
+          if (s.name === 'HITL') return { ...s, status: 'completed', detail: 'Approved by Engineer' };
+          if (s.name === 'FINALIZE') return { ...s, status: 'running', detail: 'Generating deliverables...' };
+          return s;
+        })
+      );
     } catch (err) {
       console.error(err);
     }
   };
 
   const handleRejectAction = async (actionId: string, reason?: string) => {
-    if (!selectedArtifact) return;
+    const taskId = (pendingApprovalTask as any)?.task_id || pendingApprovalTask?.action_id || actionId || selectedArtifact?.artifact_id || activeSessionId || 'memo';
     try {
-      await api.approveArtifact(selectedArtifact.artifact_id, actionId, false, reason);
+      await api.approveArtifact(taskId, actionId, false, reason);
+      setTimelineSteps((prev) =>
+        prev.map((s) => (s.name === 'HITL' ? { ...s, status: 'failed', detail: 'Action rejected by Engineer' } : s))
+      );
     } catch (err) {
       console.error(err);
     }
@@ -568,6 +642,24 @@ export function App() {
           egressPassed={egressPassed}
           onFileUploaded={handleFileUploaded}
           onSelectDocument={handleOpenDocumentInCanvas}
+          modelOverride={modelOverride}
+          onModelOverrideChange={setModelOverride}
+          timelineSteps={timelineSteps}
+        />
+      )}
+
+      {/* Top-Level Blocking HITL Approval Modal Overlay */}
+      {pendingApprovalTask && (
+        <HITLApprovalCard
+          approval={pendingApprovalTask}
+          blocking={true}
+          onApprove={async (actionId) => {
+            await handleApproveAction(actionId);
+          }}
+          onReject={async (actionId, reason) => {
+            await handleRejectAction(actionId, reason);
+            setPendingApprovalTask(null);
+          }}
         />
       )}
     </>
@@ -575,3 +667,4 @@ export function App() {
 }
 
 export default App;
+

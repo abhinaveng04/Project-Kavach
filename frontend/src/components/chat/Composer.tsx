@@ -5,16 +5,20 @@ import {
   X,
   Square,
   Sparkles,
-  Layers,
-  FileText,
   Loader2,
   Image as ImageIcon,
+  ChevronDown,
+  Brain,
+  Eye,
+  Code2,
+  Zap,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { api } from '../../api/client';
+import { MODEL_OPTIONS, ModelOverrideKey } from '../layout/TopBar';
 
 interface ComposerProps {
-  onSendMessage: (message: string, attachments: string[]) => void;
+  onSendMessage: (message: string, attachments: string[], modelOverride: ModelOverrideKey) => void;
   isExecuting: boolean;
   onStopExecution?: () => void;
   attachedFiles: string[];
@@ -22,6 +26,8 @@ interface ComposerProps {
   onRemoveAttachment: (index: number) => void;
   onSelectAttachment?: (filename: string) => void;
   uploadingFiles?: string[];
+  modelOverride: ModelOverrideKey;
+  onModelOverrideChange: (val: ModelOverrideKey) => void;
 }
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.bmp', '.webp', '.svg', '.gif', '.tiff'];
@@ -40,17 +46,22 @@ export const Composer: React.FC<ComposerProps> = ({
   onRemoveAttachment,
   onSelectAttachment,
   uploadingFiles = [],
+  modelOverride,
+  onModelOverrideChange,
 }) => {
   const [text, setText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [modelDropOpen, setModelDropOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const activeModel = MODEL_OPTIONS.find((m) => m.value === modelOverride) ?? MODEL_OPTIONS[0];
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const msg = text.trim() || (attachedFiles.length > 0 ? 'Analyze the attached image/document in detail.' : '');
     if (!msg || isExecuting) return;
-    onSendMessage(msg, attachedFiles);
+    onSendMessage(msg, attachedFiles, modelOverride);
     setText('');
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -107,7 +118,6 @@ export const Composer: React.FC<ComposerProps> = ({
           console.error('Failed to upload file:', file.name, err);
         }
       }
-      // Reset input value so re-selecting same file triggers onChange
       e.target.value = '';
     }
   };
@@ -226,17 +236,17 @@ export const Composer: React.FC<ComposerProps> = ({
             disabled={isExecuting}
             placeholder={
               isExecuting
-                ? 'Kavach is reasoning and executing tools...'
+                ? 'Swara.ai is reasoning and executing tools...'
                 : attachedFiles.length > 0
                 ? 'Ask a question about the attached image/file, or press Enter to analyze...'
-                : 'Message KAVACH Sovereign (MRPL / MoPNG)...'
+                : 'Message Swara.ai Industrial Workbench...'
             }
             className="w-full bg-transparent text-[15px] text-zinc-100 placeholder:text-zinc-500 resize-none focus:outline-none disabled:opacity-50 min-h-[44px] max-h-[200px] leading-relaxed pr-12"
           />
 
           {/* Bottom Toolbar */}
           <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-white/[0.05]">
-            {/* Left Tools & Attachments */}
+            {/* Left: Tools & Model Selector */}
             <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
@@ -255,6 +265,68 @@ export const Composer: React.FC<ComposerProps> = ({
               >
                 <Paperclip className="w-4 h-4" />
               </button>
+
+              {/* Model Override Inline Selector */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setModelDropOpen(!modelDropOpen)}
+                  disabled={isExecuting}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-[11px] font-medium text-zinc-300 hover:text-white transition-all disabled:opacity-50"
+                  title="Select AI specialist model"
+                >
+                  <activeModel.icon className={`w-3 h-3 ${activeModel.color}`} />
+                  <span className="hidden sm:inline max-w-[120px] truncate">{activeModel.label}</span>
+                  <ChevronDown className="w-3 h-3 text-zinc-500" />
+                </button>
+
+                {modelDropOpen && !isExecuting && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setModelDropOpen(false)} />
+                    <div className="absolute left-0 bottom-full mb-2 w-64 rounded-2xl bg-[#1f1f23] border border-white/[0.14] shadow-2xl p-2 z-40 animate-scale-in">
+                      <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1 mb-1">
+                        Route Override
+                      </div>
+                      {MODEL_OPTIONS.map((opt) => {
+                        const Icon = opt.icon;
+                        const isSelected = opt.value === modelOverride;
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              onModelOverrideChange(opt.value);
+                              setModelDropOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-xl flex items-center gap-2 transition-all text-xs ${
+                              isSelected
+                                ? 'bg-white/[0.1] text-white border border-white/[0.1]'
+                                : 'hover:bg-white/[0.06] text-zinc-300 hover:text-white border border-transparent'
+                            }`}
+                          >
+                            <Icon className={`w-3.5 h-3.5 ${opt.color} shrink-0`} />
+                            <span>{opt.label}</span>
+                            {isSelected && (
+                              <span className="ml-auto text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono">
+                                ON
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                      <div className="border-t border-white/[0.08] mt-2 pt-1.5 px-2 text-[10px] text-zinc-400 font-mono space-y-0.5">
+                        <div className="flex justify-between">
+                          <span>Runtime:</span>
+                          <span className="text-white font-medium">Remote Kaggle GPU Pool (Dual T4/P100)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>VRAM:</span>
+                          <span className="text-emerald-400 font-medium">24 GB Allocated</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
 
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-[11px] font-medium text-zinc-300">
                 <Sparkles className="w-3 h-3 text-purple-400" />
@@ -295,7 +367,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
         {/* Disclaimer Footer */}
         <p className="text-[11px] text-center text-zinc-500 font-sans select-none">
-          KAVACH runs 100% sovereign on-premise
+          Swara.ai runs 100% sovereign on-premise · All data stays local
         </p>
       </div>
     </div>

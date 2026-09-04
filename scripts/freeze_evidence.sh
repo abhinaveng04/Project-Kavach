@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # freeze_evidence.sh — regenerates Appendix D.4/D.5 artifacts from REPO FILES, not the docs.
 # Run at the freeze step; output pasted verbatim. Hand-edited evidence is banned (Appendix F).
-set -euo pipefail
+set -eu
+set -o pipefail 2>/dev/null || true
 cd "$(dirname "$0")/.."
 
 echo "== syntax gate (repo files) =="

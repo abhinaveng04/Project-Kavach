@@ -45,7 +45,7 @@ def run_code(code: str, timeout: int = 45) -> dict:
             "images": []
         }
 
-    job_dir = tempfile.mkdtemp(prefix="kavach_sandbox_")
+    job_dir = tempfile.mkdtemp(prefix="swara_sandbox_")
     out_dir = os.path.join(job_dir, "out")
     os.makedirs(out_dir, exist_ok=True)
     script_path = os.path.join(job_dir, "script.py")
