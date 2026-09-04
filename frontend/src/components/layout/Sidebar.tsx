@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className={cn(
-        'bg-[#171717] border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] select-none z-10',
+        'bg-[#131316] border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] select-none z-10',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -61,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={onNewSession}
           className={cn(
-            'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#212121] hover:bg-[#2f2f2f] border border-white/[0.08] text-sm font-medium text-white transition-all shadow-sm active:scale-[0.98]',
+            'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#1e1e23] hover:bg-[#27272e] border border-white/[0.08] hover:border-white/[0.16] text-sm font-medium text-white transition-all shadow-sm active:scale-[0.98]',
             collapsed && 'justify-center p-2.5'
           )}
           title="New Engineering Task"
@@ -75,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="pt-1 space-y-1">
             {!collapsed && (
               <div className="flex items-center justify-between px-3 mb-1">
-                <p className="text-[11px] font-medium text-zinc-500">Recent Tasks</p>
+                <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Recent Tasks</p>
                 <span className="text-[10px] font-mono text-zinc-600">{sessions.length}</span>
               </div>
             )}
@@ -96,8 +96,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       className={cn(
                         'w-full flex items-center justify-center p-2 rounded-xl text-xs transition-all',
                         isSelected
-                          ? 'bg-[#2f2f2f] text-purple-400 shadow-sm'
-                          : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+                          ? 'bg-[#26262c] text-purple-400 shadow-sm'
+                          : 'text-zinc-400 hover:text-white hover:bg-[#1a1a1e]'
                       )}
                       title={sessionTitle}
                     >
@@ -116,8 +116,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={cn(
                       'group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all',
                       isSelected
-                        ? 'bg-[#2f2f2f] text-white font-medium shadow-sm'
-                        : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+                        ? 'bg-[#25252b] text-white font-medium shadow-sm'
+                        : 'text-zinc-400 hover:text-white hover:bg-[#1a1a1e]'
                     )}
                     title={sessionTitle}
                   >
@@ -163,8 +163,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={cn(
               'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all',
               activeSection === 'documents'
-                ? 'bg-[#2f2f2f] text-white'
-                : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+                ? 'bg-[#25252b] text-white font-semibold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-[#1a1a1e]'
             )}
             title={collapsed ? 'Documents & RAG' : undefined}
           >
@@ -177,8 +177,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={cn(
               'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all',
               activeSection === 'artifacts'
-                ? 'bg-[#2f2f2f] text-white'
-                : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+                ? 'bg-[#25252b] text-white font-semibold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-[#1a1a1e]'
             )}
             title={collapsed ? 'Artifacts Workspace' : undefined}
           >
@@ -186,14 +186,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!collapsed && <span>Artifact Workspace</span>}
           </button>
 
-
           <button
             onClick={() => onSelectSection('audit')}
             className={cn(
               'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all',
               activeSection === 'audit'
-                ? 'bg-[#2f2f2f] text-white'
-                : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+                ? 'bg-[#25252b] text-white font-semibold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-[#1a1a1e]'
             )}
             title={collapsed ? 'Audit Lineage' : undefined}
           >
@@ -206,8 +205,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={cn(
               'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all',
               activeSection === 'hardware'
-                ? 'bg-[#2f2f2f] text-white'
-                : 'text-zinc-400 hover:text-white hover:bg-[#212121]'
+                ? 'bg-[#25252b] text-white font-semibold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-[#1a1a1e]'
             )}
             title={collapsed ? 'Hardware & Models' : undefined}
           >
@@ -224,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onOpenSettings}
             className={cn(
-              'flex-1 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#212121] transition-all group',
+              'flex-1 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#1a1a1e] transition-all group',
               collapsed && 'justify-center px-0'
             )}
             title="Settings & Preferences"
@@ -236,7 +235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!collapsed && (
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#212121] transition-all shrink-0"
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#1a1a1e] transition-all shrink-0"
               title={isDark ? 'Switch to Daylight / Light Paper Mode' : 'Switch to Dark Obsidian Mode'}
             >
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
@@ -248,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {collapsed && (
           <button
             onClick={toggleDarkMode}
-            className="w-full flex items-center justify-center p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#212121] transition-all"
+            className="w-full flex items-center justify-center p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#1a1a1e] transition-all"
             title={isDark ? 'Switch to Daylight / Light Paper Mode' : 'Switch to Dark Obsidian Mode'}
           >
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
@@ -258,7 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Collapse Toggle */}
         <button
           onClick={onToggleCollapse}
-          className="w-full flex items-center justify-center p-2 rounded-xl hover:bg-[#212121] text-zinc-400 hover:text-white transition-all text-xs"
+          className="w-full flex items-center justify-center p-2 rounded-xl hover:bg-[#1a1a1e] text-zinc-400 hover:text-white transition-all text-xs"
           title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

@@ -36,7 +36,6 @@ const DYNAMIC_THINKING_PHRASES = [
 ];
 
 const ThinkingStateIndicator: React.FC = () => {
-  // Random phrase on every new message mount
   const [index, setIndex] = useState(() =>
     Math.floor(Math.random() * DYNAMIC_THINKING_PHRASES.length)
   );
@@ -55,17 +54,17 @@ const ThinkingStateIndicator: React.FC = () => {
         });
         setFade(true);
       }, 200);
-    }, 4000); // Transitions every 4 seconds
+    }, 4000);
 
     return () => clearInterval(timer);
   }, []);
 
   return (
     <div className="space-y-3 py-2 animate-fade-in select-none">
-      <div className="flex items-center gap-2 text-xs font-medium">
-        <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+      <div className="flex items-center gap-2.5 text-xs font-medium">
+        <span className="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.8)] animate-pulse" />
         <span
-          className={`shimmer-wave-text font-semibold transition-all duration-300 ${
+          className={`shimmer-wave-text font-semibold tracking-wide text-xs transition-all duration-300 ${
             fade ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
           }`}
         >
@@ -75,9 +74,9 @@ const ThinkingStateIndicator: React.FC = () => {
 
       {/* Shimmering horizontal skeleton wave bars */}
       <div className="space-y-2 max-w-md pt-1">
-        <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-full" />
-        <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-4/5" />
-        <div className="h-2.5 rounded-full shimmer-wave-bar border border-white/[0.04] w-3/5" />
+        <div className="h-2 rounded-full shimmer-wave-bar border border-white/[0.04] w-full" />
+        <div className="h-2 rounded-full shimmer-wave-bar border border-white/[0.04] w-4/5" />
+        <div className="h-2 rounded-full shimmer-wave-bar border border-white/[0.04] w-3/5" />
       </div>
     </div>
   );
@@ -118,9 +117,9 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
 
   return (
     <div className="flex gap-4 my-6 w-full max-w-3xl mx-auto animate-fade-in select-text">
-      {/* 4-Point Star Icon (Drops In with Spring Animation) */}
-      <div className="shrink-0 mt-1">
-        <div className="w-7 h-7 rounded-full bg-[#2f2f2f] border border-white/[0.12] flex items-center justify-center shadow-md animate-star-drop">
+      {/* 4-Point Gemini Star Icon Drop-In */}
+      <div className="shrink-0 mt-0.5">
+        <div className="w-8 h-8 rounded-full bg-[#242429] border border-white/[0.14] flex items-center justify-center shadow-lg shadow-purple-500/10 animate-star-drop">
           <Sparkles className="w-4 h-4 text-purple-400" />
         </div>
       </div>
@@ -192,15 +191,15 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
               <div
                 key={art.artifact_id}
                 onClick={() => onSelectArtifact(art)}
-                className="group p-4 rounded-2xl bg-[#27272a] hover:bg-[#2f2f2f] border border-white/[0.1] hover:border-white/[0.2] transition-all duration-200 cursor-pointer shadow-lg flex items-center justify-between active:scale-[0.99]"
+                className="group p-4 rounded-2xl bg-[#222227] hover:bg-[#292930] border border-white/[0.1] hover:border-purple-500/30 transition-all duration-200 cursor-pointer shadow-xl flex items-center justify-between active:scale-[0.99]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform shadow-inner">
                     <Boxes className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h5 className="text-sm font-medium text-white group-hover:text-purple-300 transition-colors">
+                      <h5 className="text-sm font-semibold text-white group-hover:text-purple-200 transition-colors">
                         {art.filename}
                       </h5>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-zinc-300">
@@ -213,9 +212,9 @@ export const AssistantMessageCard: React.FC<AssistantMessageCardProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 text-zinc-400 group-hover:text-white transition-colors text-xs font-medium">
+                <div className="flex items-center gap-1.5 text-zinc-400 group-hover:text-white transition-colors text-xs font-medium">
                   <span className="hidden sm:inline">Open Canvas</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-purple-400" />
                 </div>
               </div>
             ))}

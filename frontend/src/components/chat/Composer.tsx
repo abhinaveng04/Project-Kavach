@@ -211,8 +211,8 @@ export const Composer: React.FC<ComposerProps> = ({
         {/* Floating Capsule Container */}
         <div
           className={cn(
-            'relative rounded-[28px] bg-[#2f2f2f] border border-white/[0.1] capsule-shadow transition-all duration-200 focus-within:border-white/[0.22] p-3 px-4',
-            isDragging && 'border-blue-500 ring-2 ring-blue-500/20 bg-[#353535]'
+            'relative rounded-[30px] bg-[#222227] border border-white/[0.12] capsule-shadow transition-all duration-200 p-3.5 px-4 focus-within:border-white/[0.24] focus-within:bg-[#25252b]',
+            isDragging && 'border-blue-500 ring-2 ring-blue-500/20 bg-[#2d2d35]'
           )}
         >
           {/* Textarea */}
@@ -235,9 +235,9 @@ export const Composer: React.FC<ComposerProps> = ({
           />
 
           {/* Bottom Toolbar */}
-          <div className="flex items-center justify-between pt-1 mt-1 border-t border-white/[0.04]">
+          <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-white/[0.05]">
             {/* Left Tools & Attachments */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -250,13 +250,13 @@ export const Composer: React.FC<ComposerProps> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isExecuting}
-                className="p-2 rounded-full hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-all"
+                className="p-2 rounded-full hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-all active:scale-95"
                 title="Attach Images (PNG, JPG), Diagrams (P&ID), or Documents (PDF, DOCX)"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
 
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/[0.08] text-[11px] font-medium text-zinc-300">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-[11px] font-medium text-zinc-300">
                 <Sparkles className="w-3 h-3 text-purple-400" />
                 <span>Agentic Reasoning</span>
               </span>
@@ -281,8 +281,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   className={cn(
                     'w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95',
                     canSubmit
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-black hover:opacity-90'
-                      : 'bg-zinc-200 text-zinc-400 dark:bg-white/[0.12] dark:text-zinc-500 cursor-not-allowed'
+                      ? 'bg-white text-black hover:opacity-95 hover:scale-105 shadow-white/10'
+                      : 'bg-white/[0.1] text-zinc-500 cursor-not-allowed'
                   )}
                   title="Send Message"
                 >

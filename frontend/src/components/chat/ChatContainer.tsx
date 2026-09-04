@@ -52,7 +52,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   }, [messages, autoScroll]);
 
   return (
-    <div className="relative flex-1 flex flex-col min-h-0 bg-[#212121] overflow-hidden">
+    <div className="relative flex-1 flex flex-col min-h-0 bg-[#161619] overflow-hidden">
       {/* Scrollable Messages Stream */}
       <div
         ref={scrollRef}
@@ -87,7 +87,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       {showScrollBottom && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-6 right-8 p-2.5 rounded-full bg-[#2f2f2f] border border-white/[0.12] text-zinc-300 hover:text-white hover:bg-[#383838] shadow-2xl transition-all flex items-center justify-center animate-scale-in"
+          className="absolute bottom-6 right-8 p-2.5 rounded-full bg-[#242428] border border-white/[0.14] text-zinc-300 hover:text-white hover:bg-[#2e2e34] shadow-2xl transition-all flex items-center justify-center animate-scale-in active:scale-95 rim-highlight"
           title="Jump to latest"
         >
           <ArrowDown className="w-4 h-4" />

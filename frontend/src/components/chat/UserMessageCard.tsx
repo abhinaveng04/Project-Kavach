@@ -38,7 +38,7 @@ export const UserMessageCard: React.FC<UserMessageCardProps> = ({
   return (
     <>
       <div className="flex justify-end my-4 animate-message-spring select-text">
-        <div className="max-w-[85%] md:max-w-[75%] bg-[#2f2f2f] text-white rounded-[24px] px-5 py-3.5 shadow-md space-y-3 border border-white/[0.06]">
+        <div className="max-w-[85%] md:max-w-[75%] bg-[#27272c] text-white rounded-[24px] px-5 py-3.5 shadow-xl space-y-3 border border-white/[0.1] rim-highlight">
           {/* Full Inline Images */}
           {imageFiles.length > 0 && (
             <div className="space-y-3 pt-1">

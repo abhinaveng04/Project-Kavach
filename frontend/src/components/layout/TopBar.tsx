@@ -40,19 +40,19 @@ export const TopBar: React.FC<TopBarProps> = ({
   const vramMb = hardwareStatus?.vram_max_mb || systemStatus?.vram_mb || 4096;
 
   return (
-    <header className="h-14 bg-[#212121] border-b border-white/[0.08] px-4 flex items-center justify-between shrink-0 select-none z-20">
+    <header className="h-14 bg-[#161619]/95 backdrop-blur-md border-b border-white/[0.08] px-4 flex items-center justify-between shrink-0 select-none z-20">
       {/* Left: Model Selector Dropdown */}
       <div className="relative">
         <button
           onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-[#2f2f2f] transition-all text-sm font-semibold text-white group"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.06] transition-all text-sm font-semibold text-zinc-900 dark:text-white group active:scale-95"
         >
           <span className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span>KAVACH Sovereign</span>
+            <Sparkles className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+            <span className="text-zinc-900 dark:text-white font-semibold">KAVACH Sovereign</span>
           </span>
-          <span className="text-xs font-normal text-zinc-400">MRPL</span>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors" />
+          <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">MRPL</span>
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors" />
         </button>
 
         {/* Model Dropdown Menu */}
@@ -62,10 +62,10 @@ export const TopBar: React.FC<TopBarProps> = ({
               className="fixed inset-0 z-30"
               onClick={() => setModelDropdownOpen(false)}
             />
-            <div className="absolute left-0 mt-2 w-80 rounded-2xl bg-[#2a2a2d] border border-white/[0.14] shadow-2xl p-2.5 z-40 animate-scale-in text-xs">
+            <div className="absolute left-0 mt-2 w-80 rounded-2xl bg-[#1f1f23] border border-white/[0.14] shadow-2xl p-2.5 z-40 animate-scale-in text-xs rim-highlight">
               <div className="px-2 py-1.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
                 <span>Active Sovereign Models</span>
-                <span className="text-[10px] text-emerald-400 font-mono">100% OFFLINE</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold">100% OFFLINE</span>
               </div>
 
               {/* Dynamic Active Model List */}
