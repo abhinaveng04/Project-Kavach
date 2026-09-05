@@ -65,12 +65,12 @@ log = logging.getLogger("sovereign.graph")
 from dotenv import load_dotenv
 load_dotenv()
 
-DEEP_BRAIN_URL = os.getenv("DEEP_BRAIN_URL") or os.getenv("BRAIN_URL") or "https://sims-pitch-dates-odds.trycloudflare.com"
+DEEP_BRAIN_URL = os.getenv("DEEP_BRAIN_URL") or os.getenv("THINK_URL") or os.getenv("BRAIN_URL") or "https://rna-diary-preferences-pockets.trycloudflare.com"
 BRAIN_URL  = DEEP_BRAIN_URL
-FAST_BRAIN_URL = os.getenv("FAST_BRAIN_URL") or "https://capture-elevation-bidder-skills.trycloudflare.com"
-VISION_URL = os.getenv("VISION_URL") or "https://distinct-simply-preference-facilitate.trycloudflare.com"
-CODER_URL  = os.getenv("CODER_URL") or "https://institution-understood-email-improvement.trycloudflare.com"
-EMBED_URL  = os.getenv("EMBEDDING_URL") or os.getenv("EMBED_URL") or "https://remain-flow-with-submission.trycloudflare.com"
+FAST_BRAIN_URL = os.getenv("FAST_BRAIN_URL") or "https://stylus-prix-abc-printer.trycloudflare.com"
+VISION_URL = os.getenv("VISION_URL") or "https://plain-cumulative-plant-aged.trycloudflare.com"
+CODER_URL  = os.getenv("CODER_URL") or "https://typing-tcp-behavioral-protective.trycloudflare.com"
+EMBED_URL  = os.getenv("EMBEDDING_URL") or os.getenv("EMBED_URL") or "https://trip-compete-combines-breaking.trycloudflare.com"
 
 # Budget constants (ARCH §7.2)
 MAX_STEPS       = 10

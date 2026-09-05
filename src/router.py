@@ -44,7 +44,7 @@ _SHEET_EXTS = (".xlsx", ".csv")
 
 # L2 endpoint — reads from env at call time (allows runtime override)
 def _fast_brain_url() -> str:
-    return os.getenv("FAST_BRAIN_URL") or "https://capture-elevation-bidder-skills.trycloudflare.com"
+    return os.getenv("FAST_BRAIN_URL") or "https://stylus-prix-abc-printer.trycloudflare.com"
 
 
 def route_l1(

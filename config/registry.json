@@ -1,6 +1,6 @@
 {
   "deep_brain": {
-    "base_url": "https://sims-pitch-dates-odds.trycloudflare.com/v1",
+    "base_url": "https://rna-diary-preferences-pockets.trycloudflare.com/v1",
     "model": "Qwen2.5-7B-Instruct",
     "type": "openai_compatible",
     "role": "Primary Reasoning (CEO)",
@@ -8,7 +8,7 @@
     "sovereign_flag": "AIRGAP-EXTERNAL-FLAG"
   },
   "fast_brain": {
-    "base_url": "https://capture-elevation-bidder-skills.trycloudflare.com/v1",
+    "base_url": "https://stylus-prix-abc-printer.trycloudflare.com/v1",
     "model": "Qwen2.5-3B-Instruct",
     "type": "openai_compatible",
     "role": "Fast Judge / Router",
@@ -16,7 +16,7 @@
     "sovereign_flag": "AIRGAP-EXTERNAL-FLAG"
   },
   "coder": {
-    "base_url": "https://institution-understood-email-improvement.trycloudflare.com/v1",
+    "base_url": "https://typing-tcp-behavioral-protective.trycloudflare.com/v1",
     "model": "Qwen2.5-Coder-7B-Instruct",
     "type": "openai_compatible",
     "role": "Code & Calculation Specialist",
@@ -24,7 +24,7 @@
     "sovereign_flag": "AIRGAP-EXTERNAL-FLAG"
   },
   "vision": {
-    "base_url": "https://distinct-simply-preference-facilitate.trycloudflare.com/v1",
+    "base_url": "https://plain-cumulative-plant-aged.trycloudflare.com/v1",
     "model": "Qwen2.5-VL-7B-Instruct",
     "type": "openai_compatible",
     "role": "Vision & OCR Specialist",
@@ -32,7 +32,7 @@
     "sovereign_flag": "AIRGAP-EXTERNAL-FLAG"
   },
   "embedding": {
-    "base_url": "https://remain-flow-with-submission.trycloudflare.com/v1",
+    "base_url": "https://trip-compete-combines-breaking.trycloudflare.com/v1",
     "model": "nomic-embed-text-v1.5",
     "type": "openai_compatible",
     "role": "Vector Embeddings (RAG)",

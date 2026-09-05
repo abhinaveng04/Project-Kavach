@@ -38,41 +38,52 @@ MODELS_SPEC = [
         "role": "Primary Reasoning / CEO",
         "model": "Qwen2.5-7B-Instruct",
         "env_var": "DEEP_BRAIN_URL",
-        "fallback": "https://sims-pitch-dates-odds.trycloudflare.com",
+        "alt_env_vars": ["THINK_URL", "BRAIN_URL"],
+        "fallback": "https://rna-diary-preferences-pockets.trycloudflare.com",
     },
     {
         "key": "fast_brain",
         "role": "Fast Routing Judge (<1500ms)",
         "model": "Qwen2.5-3B-Instruct",
         "env_var": "FAST_BRAIN_URL",
-        "fallback": "https://capture-elevation-bidder-skills.trycloudflare.com",
+        "alt_env_vars": [],
+        "fallback": "https://stylus-prix-abc-printer.trycloudflare.com",
     },
     {
         "key": "coder",
         "role": "Deterministic Calculation",
         "model": "Qwen2.5-Coder-7B-Instruct",
         "env_var": "CODER_URL",
-        "fallback": "https://institution-understood-email-improvement.trycloudflare.com",
+        "alt_env_vars": [],
+        "fallback": "https://typing-tcp-behavioral-protective.trycloudflare.com",
     },
     {
         "key": "vision",
         "role": "P&ID Tag OCR & Multimodal",
         "model": "Qwen2.5-VL-7B-Instruct",
         "env_var": "VISION_URL",
-        "fallback": "https://distinct-simply-preference-facilitate.trycloudflare.com",
+        "alt_env_vars": [],
+        "fallback": "https://plain-cumulative-plant-aged.trycloudflare.com",
     },
     {
         "key": "embedding",
         "role": "Sovereign RAG Embeddings",
         "model": "nomic-embed-text-v1.5",
         "env_var": "EMBEDDING_URL",
-        "fallback": "https://remain-flow-with-submission.trycloudflare.com",
+        "alt_env_vars": ["EMBED_URL"],
+        "fallback": "https://trip-compete-combines-breaking.trycloudflare.com",
     },
 ]
 
 
 async def probe_endpoint(client: httpx.AsyncClient, item: dict) -> dict:
-    url = os.getenv(item["env_var"]) or item["fallback"]
+    url = os.getenv(item["env_var"])
+    if not url:
+        for alt in item.get("alt_env_vars", []):
+            url = os.getenv(alt)
+            if url:
+                break
+    url = url or item["fallback"]
     probe_target = f"{url.rstrip('/')}/v1/models"
     t0 = time.perf_counter()
     try:
