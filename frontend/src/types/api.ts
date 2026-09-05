@@ -230,3 +230,15 @@ export interface TestEgressResponse {
   sovereignty_intact: boolean;
   probes: EgressProbeResult[];
 }
+
+export interface AirGapStatusResponse {
+  airgap_status: 'FLAGGED' | 'SECURED';
+  connected: boolean;
+  color: 'orange' | 'green';
+  message: string;
+  egress_count: number;
+  models?: string[];
+  air_gapped?: boolean;
+  gzip_middleware?: boolean;
+}
+

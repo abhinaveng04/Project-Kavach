@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   ChevronDown,
@@ -58,7 +58,34 @@ export const TopBar: React.FC<TopBarProps> = ({
   onModelOverrideChange,
 }) => {
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [sovereignStatus, setSovereignStatus] = useState<{
+    airgap_status: 'FLAGGED' | 'SECURED';
+    connected: boolean;
+    color: string;
+    message: string;
+    egress_count: number;
+  } | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    const fetchSovereignty = async () => {
+      try {
+        const res = await fetch('/api/sovereignty/status');
+        if (res.ok && active) {
+          const data = await res.json();
+          setSovereignStatus(data);
+        }
+      } catch (_) {}
+    };
+    fetchSovereignty();
+    const interval = setInterval(fetchSovereignty, 2500);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const isConnected = sovereignStatus ? sovereignStatus.connected : (egressPassed === false);
   const isSovereign = systemStatus?.sovereignty?.offline_only ?? true;
   const gpuName = hardwareStatus?.gpu_name || systemStatus?.gpu?.name || 'Local GPU';
   const vramMb = hardwareStatus?.vram_max_mb || systemStatus?.vram_mb || 4096;
@@ -176,31 +203,25 @@ export const TopBar: React.FC<TopBarProps> = ({
             onOpenSovereignty();
           }}
           className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-medium transition-all ${
-            egressPassed === true
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_12px_rgba(52,211,153,0.15)]'
-              : egressPassed === false
-              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
-              : 'bg-[#27272a] hover:bg-[#323236] border-white/[0.08] text-zinc-300 hover:text-white'
+            isConnected
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_12px_rgba(52,211,153,0.15)]'
           }`}
           title="Open Swara.ai Sovereignty & Air-Gap Dashboard"
         >
           <span
             className={`w-2 h-2 rounded-full ${
-              egressPassed === true
-                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
-                : egressPassed === false
+              isConnected
                 ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]'
-                : 'bg-emerald-400 animate-pulse'
+                : 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
             }`}
           />
           <span className="font-medium">
             {isTestingEgress
               ? 'Testing...'
-              : egressPassed === true
-              ? 'Sovereign Air-Gap · Verified'
-              : egressPassed === false
-              ? 'Egress Detected'
-              : 'Sovereign Air-Gap'}
+              : isConnected
+              ? '⚠ WAN DETECTED · TRAFFIC FLAGGED'
+              : '🛡 AIR-GAP SECURED · 0 EGRESS'}
           </span>
           <Shield className="w-3.5 h-3.5 opacity-70" />
         </button>

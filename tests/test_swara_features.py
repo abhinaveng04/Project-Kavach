@@ -97,3 +97,33 @@ class TestFastAPIEndpoints:
         assert resp.status_code == 200
         data = resp.json()
         assert "tags" in data
+
+    def test_sovereignty_status_airgap_monitor(self, client):
+        resp = client.get("/api/sovereignty/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["airgap_status"] in ("FLAGGED", "SECURED")
+        assert isinstance(data["connected"], bool)
+        assert data["color"] in ("orange", "green")
+        assert "message" in data
+        assert "egress_count" in data
+
+    def test_tri_probe_egress_endpoint(self, client):
+        resp = client.post("/api/test-egress")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "PASS"
+        assert data["sovereignty_intact"] is True
+        assert len(data["probes"]) == 3
+        for probe in data["probes"]:
+            assert probe["blocked"] is True
+            assert probe["status"] == "BLOCKED"
+            assert "[AIRGAP-EGRESS-DROP]" in probe["kernel_log"]
+
+    def test_hitl_403_gate_on_unapproved_docx(self, client):
+        resp = client.get("/api/artifact/unapproved_docx_task/docx")
+        # Artifact route is /api/artifact/{task_id}
+        resp2 = client.get("/api/artifact/unapproved_docx_task")
+        assert resp2.status_code == 403
+        assert resp2.json()["detail"] == "Artifact not approved via HITL or task_id not found."
+

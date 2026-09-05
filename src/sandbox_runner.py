@@ -62,6 +62,12 @@ def run_code(code: str, timeout: int = 45) -> dict:
 
     container = None
     try:
+        # Security invariant: strictly forbid mounting docker socket
+        job_volumes = {job_dir: {"bind": "/tmp/job", "mode": "rw"}}
+        for k in job_volumes:
+            if "/var/run/docker.sock" in str(k):
+                raise PermissionError("Mounting /var/run/docker.sock is strictly forbidden.")
+
         container = client.containers.run(
             image="sovereign-sandbox:1.0",
             command="python -u /tmp/job/script.py",
@@ -69,7 +75,7 @@ def run_code(code: str, timeout: int = 45) -> dict:
             mem_limit="2g",
             security_opt=["no-new-privileges"],
             cap_drop=["ALL"],
-            volumes={job_dir: {"bind": "/tmp/job", "mode": "rw"}},
+            volumes=job_volumes,
             tmpfs={"/tmp/job/out": "rw,noexec,nosuid"},
             detach=True,
             user="1000:1000"

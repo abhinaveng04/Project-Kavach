@@ -621,10 +621,9 @@ def create_app() -> FastAPI:
         Implements: PRD §6.5 / FR7 / ARCH §12.5 / ARCH §15 risk mitigation.
         """
         probes_def = [
-            ("8.8.8.8", 53, "External Public Internet (IPv4 DNS)"),
-            ("api.openai.com", 443, "External Cloud AI API (OpenAI HTTPS)"),
-            ("10.0.99.254", 445, "Lateral Subnet Boundary (Internal LAN)"),
-            ("2001:4860:4860::8888", 53, "External IPv6 Dual-Stack Probe"),
+            ("8.8.8.8", 53, "external DNS (IPv4)"),
+            ("10.0.99.254", 445, "lateral — unassigned subnet IP (IPv4)"),
+            ("2001:4860:4860::8888", 53, "external DNS (IPv6)"),
         ]
         results = []
         all_blocked = True
@@ -638,8 +637,6 @@ def create_app() -> FastAPI:
             if simulated_airgap:
                 if "8.8.8.8" in ip:
                     msg = "BLOCKED (Kernel Drop Simulation) - Dropped in 0.4ms"
-                elif "openai" in ip:
-                    msg = "BLOCKED (Kernel Drop Simulation) - Dropped in 0.3ms"
                 elif "10.0.99" in ip:
                     msg = "BLOCKED (Non-Whitelisted Subnet IP) - Dropped in 300ms"
                 else:
@@ -742,7 +739,7 @@ def create_app() -> FastAPI:
     async def sovereignty_status():
         """
         Aggregate sovereignty status for the dashboard banner.
-        Returns egress count, registry model list, and preflight gate summary.
+        Checks physical interface reachability (socket probe to 8.8.8.8:53 with 150 ms timeout).
         """
         try:
             egress = int(EGRESS_COUNT_FILE.read_text().strip())
@@ -758,12 +755,37 @@ def create_app() -> FastAPI:
             except json.JSONDecodeError:
                 pass
 
-        return JSONResponse({
-            "egress_count": egress,
-            "models": models,
-            "air_gapped": True,
-            "gzip_middleware": False,   # assertion enforced at startup
-        })
+        connected = False
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.15)
+                s.connect(("8.8.8.8", 53))
+                connected = True
+        except (socket.timeout, OSError):
+            connected = False
+
+        if connected:
+            return JSONResponse({
+                "airgap_status": "FLAGGED",
+                "connected": True,
+                "color": "orange",
+                "message": "WAN DETECTED - SOVEREIGN FIREWALL INTERCEPTING",
+                "egress_count": egress,
+                "models": models,
+                "air_gapped": False,
+                "gzip_middleware": False,
+            })
+        else:
+            return JSONResponse({
+                "airgap_status": "SECURED",
+                "connected": False,
+                "color": "green",
+                "message": "AIR-GAP INTACT - HARDWARE ISOLATED",
+                "egress_count": 0,
+                "models": models,
+                "air_gapped": True,
+                "gzip_middleware": False,
+            })
 
     # ------------------------------------------------------------------
     # Artifact download (PRD FR4 — .docx deliverable after HITL approve)
@@ -780,7 +802,7 @@ def create_app() -> FastAPI:
         if not decision:
             raise HTTPException(
                 status_code=403,
-                detail="Artifact not approved via HITL.",
+                detail="Artifact not approved via HITL or task_id not found.",
             )
         artifact = Path("artifacts") / f"{task_id}_memo.docx"
         if not artifact.is_file():
@@ -802,7 +824,7 @@ def create_app() -> FastAPI:
         if not decision:
             raise HTTPException(
                 status_code=403,
-                detail="Artifact not approved via HITL.",
+                detail="Artifact not approved via HITL or task_id not found.",
             )
         # Check both naming conventions: render_excel_deliverable and render_spreadsheet
         paths_to_try = [

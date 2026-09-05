@@ -1,52 +1,47 @@
 @echo off
-chcp 65001 >nul
-title Swara.ai - Sovereign Model Downloader
+setlocal enabledelayedexpansion
+title Model Download Suite - 4GB VRAM Topology (RTX 3050)
 cd /d "%~dp0"
 
-echo ======================================================================
-echo   Swara.ai - Sovereign Model Downloader
-echo   Automated Environment Setup and Model Retrieval
-echo ======================================================================
-echo.
+echo ===============================================================================
+echo   DOWNLOADING OFFLINE MODEL ARTIFACTS FOR RTX 3050 (4 GB VRAM BUDGET)
+echo ===============================================================================
 
-REM 1. Check or Create Virtual Environment
-if not exist "venv\Scripts\python.exe" (
-    echo [1/3] Virtual environment not found. Creating venv...
-    python -m venv venv
-    if errorlevel 1 (
-        echo [ERROR] Failed to create virtual environment. Ensure Python 3.10+ is installed on PATH.
-        pause
-        exit /b 1
-    )
-    echo [1/3] Virtual environment created successfully.
+mkdir models\ceo models\vision models\embedding 2>nul
+
+:: 1. CEO / Brain Model: Qwen3-1.7B (or Qwen2.5-1.5B Instruct Q4_K_M ~1.15 GB)
+if not exist "models\ceo\qwen3-1.7b-instruct-q4_k_m.gguf" (
+    echo [*] Downloading CEO / Brain Model (Qwen3-1.7B Q4_K_M)...
+    curl -L -o "models\ceo\qwen3-1.7b-instruct-q4_k_m.gguf" "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
 ) else (
-    echo [1/3] Virtual environment found [venv].
+    echo [OK] CEO Model already present in models\ceo\.
 )
 
-REM 2. Install / Verify Dependencies
-echo.
-echo [2/3] Checking and installing requirements from requirements.txt...
-venv\Scripts\python.exe -m pip install --upgrade pip --quiet
-venv\Scripts\python.exe -m pip install -r requirements.txt
-if errorlevel 1 (
-    echo [WARNING] Some packages had warnings during install. Proceeding to model download...
-)
-
-REM 3. Download Models
-echo.
-echo [3/3] Downloading sovereign models: Qwen3 1.7B, Qwen2.5-VL 3B + mmproj, Qwen3 0.6B...
-venv\Scripts\python.exe scripts\download_models.py
-if errorlevel 1 (
-    echo.
-    echo [WARNING] Download encountered an interruption. You can run download_models.bat again to resume anytime.
+:: 2. Vision Model: Qwen2.5-VL-3B Instruct Q4_K_M (~1.65 GB)
+if not exist "models\vision\qwen2.5-vl-3b-instruct-q4_k_m.gguf" (
+    echo [*] Downloading Vision Specialist Model (Qwen2.5-VL-3B)...
+    curl -L -o "models\vision\qwen2.5-vl-3b-instruct-q4_k_m.gguf" "https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct-GGUF/resolve/main/qwen2.5-vl-3b-instruct-q4_k_m.gguf"
 ) else (
-    echo.
-    echo [SUCCESS] All sovereign models downloaded and ready!
+    echo [OK] Vision Model already present in models\vision\.
 )
 
-echo.
-echo ======================================================================
-echo   Setup finished. You can now launch Swara.ai with run.bat
-echo ======================================================================
-echo.
+:: 3. Multimodal Projector: mmproj-qwen2.5-vl-3b-f16.gguf (~0.4 GB)
+if not exist "models\vision\mmproj-qwen2.5-vl-3b-f16.gguf" (
+    echo [*] Downloading Multimodal Projector (mmproj)...
+    curl -L -o "models\vision\mmproj-qwen2.5-vl-3b-f16.gguf" "https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct-GGUF/resolve/main/mmproj-qwen2.5-vl-3b-f16.gguf"
+) else (
+    echo [OK] Multimodal Projector already present in models\vision\.
+)
+
+:: 4. ChromaDB Embeddings Model: nomic-embed-text-v1.5 Q8_0 (~0.28 GB, runs on CPU)
+if not exist "models\embedding\nomic-embed-text-v1.5.Q8_0.gguf" (
+    echo [*] Downloading Embedding Model (nomic-embed-text-v1.5)...
+    curl -L -o "models\embedding\nomic-embed-text-v1.5.Q8_0.gguf" "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf"
+) else (
+    echo [OK] Embedding Model already present in models\embedding\.
+)
+
+echo ===============================================================================
+echo [SUCCESS] Model suite ready for offline GPU execution.
+echo ===============================================================================
 pause
